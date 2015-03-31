@@ -3,7 +3,7 @@ datafile = open(path, 'r')
 link = dict([])
 dataall = []
 
-for i in range(1, 100000):
+for i in range(1, 1000):
     data = datafile.readline()
     dataset = data.split(' ')
     if (dataset[0].find("http://en.wikipedia.org/wiki/Benjamin_Tucker")!= -1 and dataset[2].find("dbpedia.org") != -1):

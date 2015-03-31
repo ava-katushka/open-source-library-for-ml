@@ -1,5 +1,4 @@
 import multiprocessing
-import bz2
 import gensim
 def process_article((title, text, number)):
     text = gensim.corpora.wikicorpus.filter_wiki(text)
