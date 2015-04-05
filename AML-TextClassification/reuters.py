@@ -1,14 +1,12 @@
-#!/usr/bin/python 
-# -*- coding: utf-8 -*- 
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 
+import re
+import os
 from HTMLParser import HTMLParser
 from glob import glob
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.cross_validation import cross_val_score
-import re
-import sys
-import os.path
-import numpy as np
+
+
 
 """
 Класс-парсер для работы с выборкой Reuters-21578
@@ -24,7 +22,7 @@ class ReutersParser(HTMLParser):
         #считываем данные о возможных значениях каждой категории
         self.numbers_to_types = {}
         self.all_types_to_numbers = {}
-        for filename in glob(os.path.join(data_path, "*.lc.txt")):
+        for filename in glob(os.path.join(path_to_reuters, "*.lc.txt")):
             with open(filename, "r") as f:
                 categ_name = filename[filename.index("-") + 1 : filename.rindex("-")]
                 self.numbers_to_types[categ_name] = [item.strip() for item in f.read().split("\n")]
@@ -33,7 +31,7 @@ class ReutersParser(HTMLParser):
                     self.all_types_to_numbers[ categ_name ][ self.numbers_to_types[categ_name][i] ] = i
         self.__reset()
         self.__func_sample = "use_" + sample + "_sample"
-        self.encoding = encoding
+        #self.encoding = encoding
 
     def use_modapte_sample(self, attrs):
         if attrs[0][1] == "YES":
@@ -94,7 +92,6 @@ class ReutersParser(HTMLParser):
     def parse(self, files):
         data = files.read()
         self.feed(data)
-        #print self.__docs["train"][0]
 
     """
     Возвращает информацию о документах в следующем формате
@@ -114,36 +111,5 @@ class ReutersParser(HTMLParser):
     def get_corpus(self):
         return self.__docs
 
-"""
-При запуске программы указывать путь к папке с коллекцией документов Reuters-21578
-"""
 
-    
-data_path = sys.argv[1]
-rp = ReutersParser(data_path)
-for filename in glob(os.path.join(data_path, "*.sgm")):
-    with open(filename, "r") as f:
-        rp.parse(f)
-    break
-
-
-"""
-Получаем разреженную матрицу текстовых признаков
-"""
-count_vect = CountVectorizer()
-text_data = [line["body"] for line in rp.get_corpus()["train"]]
-matrix = count_vect.fit_transform(text_data)
-
-"""
-Простой "наивный" баейсовский классификатор
-"""
-Y_train = []
-for line in rp.get_corpus()["train"]:
-    if (len(line["places"]) != 0):
-        Y_train.append(line["places"][0])
-    else:
-        Y_train.append(-1)
-from sklearn.naive_bayes import MultinomialNB
-clf = MultinomialNB().fit(matrix, Y_train)
-print np.mean(cross_val_score(clf, matrix, np.array(Y_train)))
 
