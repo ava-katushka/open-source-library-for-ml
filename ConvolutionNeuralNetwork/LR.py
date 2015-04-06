@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+from sklearn.externals import joblib
 import cPickle
 import gzip
 import os
@@ -7,7 +9,6 @@ import time
 import numpy
 import theano
 import theano.tensor as T
-from theano import shared
 
 
 class LogisticRegression(object):
@@ -129,44 +130,45 @@ class LogisticRegression(object):
         else:
             raise NotImplementedError()
 
-
-def load_data(dataset):
-    ''' Loads the dataset
+def load_MNIST(dataset_name):
+    ''' Loads the MNIST dataset
 
     :type dataset: string
     :param dataset: the path to the dataset (here MNIST)
     '''
 
     #############
-    # LOAD DATA #
+    # LOAD MNIST DATA #
     #############
 
     # Download the MNIST dataset if it is not present
-    data_dir, data_file = os.path.split(dataset)
-    if data_dir == "" and not os.path.isfile(dataset):
+    data_dir, data_file = os.path.split(dataset_name)
+    if data_dir == "" and not os.path.isfile(dataset_name):
         # Check if dataset is in the data directory.
         new_path = os.path.join(
             os.path.split(__file__)[0],
             "..",
             "data",
-            dataset
+            dataset_name
         )
         if os.path.isfile(new_path) or data_file == 'mnist.pkl.gz':
-            dataset = new_path
+            dataset_name = new_path
 
-    if (not os.path.isfile(dataset)) and data_file == 'mnist.pkl.gz':
+    if (not os.path.isfile(dataset_name)) and data_file == 'mnist.pkl.gz':
         import urllib
         origin = (
             'http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz'
         )
         print 'Downloading data from %s' % origin
-        urllib.urlretrieve(origin, dataset)
+        urllib.urlretrieve(origin, dataset_name)
 
-    print '... loading data'
+    print '... loading MNIST data'
 
     # Load the dataset
-    f = gzip.open(dataset, 'rb')
+    f = gzip.open(dataset_name, 'rb')
+
     train_set, valid_set, test_set = cPickle.load(f)
+
     f.close()
     #train_set, valid_set, test_set format: tuple(input, target)
     #input is an numpy.ndarray of 2 dimensions (a matrix)
@@ -174,6 +176,64 @@ def load_data(dataset):
     #numpy.ndarray of 1 dimensions (vector)) that have the same length as
     #the number of rows in the input. It should give the target
     #target to the example with the same index in the input.
+    return train_set, valid_set, test_set
+
+def load_data_kaggle_MNIST(dataset_name='train.csv', pkl_name='training_set.pkl'):
+    """
+    :param dataset_name: имя датасета, который находится в рабочей директории
+        датасет должен быть в формате pkl и содержать массив пар - картинки и значения
+    :return:
+    """
+    print '... loading data in kaggle_MNIST style'
+    #dataset = numpy.loadtxt(open(dataset_name, 'r'), dtype='f8', delimiter=',', skiprows=1)
+    #joblib.dump(dataset, pkl_name)
+    dataset = joblib.load(pkl_name)
+
+    size = dataset.shape[0]
+    print 'size of dataset =', size
+    indices = numpy.arange(size)
+    numpy.random.shuffle(indices)
+    test_indices = indices[0:(size/7)]
+    valid_indices = indices[(size/7):(size/7)*2]
+    train_indices = indices[(size/7)*2:]
+    train_set_y = numpy.array([x[0] for x in dataset[train_indices]]) #labels
+    train_set_x = numpy.array([x[1:] for x in dataset[train_indices]])
+    test_set_y = numpy.array([x[0] for x in dataset[test_indices]]) #labels
+    test_set_x = numpy.array([x[1:] for x in dataset[test_indices]])
+    valid_set_y = numpy.array([x[0] for x in dataset[valid_indices]]) #labels
+    valid_set_x = numpy.array([x[1:] for x in dataset[valid_indices]])
+
+    return (train_set_x, train_set_y), (valid_set_x, valid_set_y), (test_set_x, test_set_y)
+
+
+def load_test_data(name_of_test_set, pkl_name="test_set.pkl"):
+    """
+    :type name_of_test_set: string
+    :param name_of_test_set: имя тестового датасета
+    """
+    print '... loading test data'
+    dataset = numpy.loadtxt(open(name_of_test_set, 'r'), dtype='f8', delimiter=',', skiprows=1)
+    joblib.dump(dataset, pkl_name)
+    dataset = joblib.load(pkl_name)
+    print 'size of test set =', dataset.shape[0]
+    print 'shape of test data =', dataset.shape
+    return dataset
+
+def load_data(dataset_name):
+    ''' Loads the dataset
+
+    :type dataset_name: string
+    :param dataset_name: the path to the dataset (here MNIST)
+    '''
+
+    #############
+    # LOAD DATA #
+    #############
+    if dataset_name == 'mnist.pkl.gz':
+        datasets = load_MNIST(dataset_name)
+    else:
+        datasets = load_data_kaggle_MNIST(dataset_name)
+    assert len(datasets) == 3
 
     def shared_dataset(data_xy, borrow=True):
         """ Function that loads the dataset into shared variables
@@ -200,13 +260,24 @@ def load_data(dataset):
         # lets ous get around this issue
         return shared_x, T.cast(shared_y, 'int32')
 
-    test_set_x, test_set_y = shared_dataset(test_set)
-    valid_set_x, valid_set_y = shared_dataset(valid_set)
-    train_set_x, train_set_y = shared_dataset(train_set)
+    test_set_x, test_set_y = shared_dataset(datasets[2])
+    valid_set_x, valid_set_y = shared_dataset(datasets[1])
+    train_set_x, train_set_y = shared_dataset(datasets[0])
 
     rval = [(train_set_x, train_set_y), (valid_set_x, valid_set_y),
             (test_set_x, test_set_y)]
     return rval
+
+
+def save_predictions(pred_y, filename='predictions.csv'):
+    """
+    Записывает результат как два столбца в csv-файл
+    :param pred_y: одномерный массив с результатами распознавания
+    :param filename: имя файла для записи
+    """
+    resultWellFormed = numpy.column_stack((range(1, 28001), pred_y))
+    numpy.savetxt(filename, resultWellFormed, delimiter=',', fmt='%d')
+    print 'results were saved to', filename
 
 
 def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
@@ -240,6 +311,12 @@ def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
     n_train_batches = train_set_x.get_value(borrow=True).shape[0] / batch_size
     n_valid_batches = valid_set_x.get_value(borrow=True).shape[0] / batch_size
     n_test_batches = test_set_x.get_value(borrow=True).shape[0] / batch_size
+    print 'len of train_set:', train_set_x.get_value(borrow=True).shape[0]
+    print 'len of valid_set:', valid_set_x.get_value(borrow=True).shape[0]
+    print 'len of test_set:', test_set_x.get_value(borrow=True).shape[0]
+    print 'len of train_batches:', n_train_batches
+    print 'len of valid_batches:', n_valid_batches
+    print 'len of test_batches:', n_test_batches
 
     ######################
     # BUILD ACTUAL MODEL #
@@ -257,6 +334,15 @@ def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
     # construct the logistic regression class
     # Each MNIST image has size 28*28
     classifier = LogisticRegression(input=x, n_in=28 * 28, n_out=10)
+
+    x_set = T.matrix('x_set')
+    prediction_model = theano.function(
+        [x_set],
+        outputs=classifier.y_pred,
+        givens={
+            x: x_set
+        }
+    )
 
     # the cost we minimize during training is the negative log likelihood of
     # the model in symbolic format
@@ -397,5 +483,17 @@ def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
                           os.path.split(__file__)[1] +
                           ' ran for %.1fs' % ((end_time - start_time)))
 
+    ###############
+    # PREDICTIONS #
+    ###############
+    test_dataset = load_test_data(name_of_test_set="test.csv")
+    print '... predict answers'
+    predictions = prediction_model(test_dataset)
+    print predictions.shape
+    save_predictions(predictions)
+
+
+
 if __name__ == '__main__':
-    sgd_optimization_mnist()
+    #sgd_optimization_mnist()
+    sgd_optimization_mnist(dataset='train.csv')

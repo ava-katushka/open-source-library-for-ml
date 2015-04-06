@@ -8,7 +8,7 @@ import theano
 import theano.tensor as T
 
 
-from LR import LogisticRegression, load_data
+from LR import LogisticRegression, load_MNIST
 
 
 # start-snippet-1
@@ -198,7 +198,7 @@ def test_mlp(learning_rate=0.01, L1_reg=0.00, L2_reg=0.0001, n_epochs=1000,
 
 
    """
-    datasets = load_data(dataset)
+    datasets = load_data_MNIST(dataset)
 
     train_set_x, train_set_y = datasets[0]
     valid_set_x, valid_set_y = datasets[1]
