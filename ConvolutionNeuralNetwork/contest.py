@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from Layers import SoftmaxLayer, FullyConnectedLayer, ConvLayer, ReLULayer, DropoutHiddenLayer, MaxPoolingLayer
 import numpy
 
