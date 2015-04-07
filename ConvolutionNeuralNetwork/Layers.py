@@ -238,6 +238,7 @@ class MaxPoolingLayer(object):
             ds=poolsize,
             ignore_border=True,
             st=(2,2)
+            ignore_border=True
         )
 
 class DropoutHiddenLayer(FullyConnectedLayer):
