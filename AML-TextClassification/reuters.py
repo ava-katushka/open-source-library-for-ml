@@ -9,16 +9,29 @@ from glob import glob
 
 
 """
-Класс-парсер для работы с выборкой Reuters-21578
+Класс-парсер для работы с корпусом Reuters-21578
+Реализация предполагает использование выборки modapte
 
 """
 
 class ReutersParser(HTMLParser):
+    """
+    self.__docs[kind_of_sample] - массив документов, где kind_of_sample: "train", "test" - обучающая или тестовая выборка
+    Каждый документ - словарь со следующими полями:
+    "topics": []
+    "places": []
+    "people": []
+    "orgs": []
+    "exchanges": []
+    "companies": []
+    "title": ""
+    "body": ""
+    """
 
     def __init__(self, path_to_reuters, encoding = 'latin-1', sample = "modapte"):
         HTMLParser.__init__(self)
         self.__docs = { "train": [], "test": [] }
-       
+        self.data_path = path_to_reuters
         #считываем данные о возможных значениях каждой категории
         self.numbers_to_types = {}
         self.all_types_to_numbers = {}
@@ -79,7 +92,7 @@ class ReutersParser(HTMLParser):
                 self.__tags_store[ self.__current_tag ] += data
 
     def __reset(self):
-        self.__tags_store = { "topics": '', "places": [], "people": [], "orgs": [], "exchanges": [],\
+        self.__tags_store = { "topics": [], "places": [], "people": [], "orgs": [], "exchanges": [],\
                     "companies": [], "title": "", "body": "" }
         self.__is_d_tag = 0
         self.__d_store = []
@@ -89,27 +102,27 @@ class ReutersParser(HTMLParser):
         self.is_train_set = 0
 
 
-    def parse(self, files):
-        data = files.read()
-        self.feed(data)
+    def parse(self):
+        for filename in glob(os.path.join(self.data_path, "*.sgm")):
+            with open(filename, "r") as f:
+                data = f.read()
+                self.feed(data)
 
-    """
-    Возвращает информацию о документах в следующем формате
-    docs[kind_of_sample] - массив документов, где kind_of_sample: "train", "test" - обучающая или тестовая выборка
-    Каждый документ - словарь со следующими полями:
-    "topics": ''
-    "places": []
-    "people": []
-    "orgs": []
-    "exchanges": []
-    "companies": []
-    "title": ""
-    "body": ""
+  
+    def get_corpus(self, subset, category, value):
+        """
+        subset: 'train' or 'test'
+            Выбираем подмножество документов корпуса: 'train' - обучающая выборка,
+            'test' - тестовая выборка
+        category: "topics", "places", "people", "orgs", "exchanges", "companies"
+            Выбираем параметр, по которому будем проводить классификацию
 
+        value: "data" or "target"
+        """
 
-    """
-    def get_corpus(self):
-        return self.__docs
-
+        if (value == "data"):
+            return [line["body"] for line in self.__docs[subset] if len(line[category]) != 0]
+        if (value == "target"):
+            return [line[category][0] for line in self.__docs[subset] if len(line[category]) != 0]
 
 
