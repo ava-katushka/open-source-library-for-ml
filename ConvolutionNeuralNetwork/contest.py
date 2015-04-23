@@ -161,5 +161,6 @@ def evaluate_lenet5(learning_rate=1.0, n_epochs=20, nkerns=[48, 96, 128, 128], b
 
             if iter % 100 == 0:
                 learning_rate = 0.1*learning_rate
+                updates = [(param_i, param_i - learning_rate * grad_i) for param_i, grad_i in zip(params, grads)]
     #итог - тестовая ошибка не меняется
 evaluate_lenet5()
