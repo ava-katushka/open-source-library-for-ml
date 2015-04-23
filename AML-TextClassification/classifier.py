@@ -15,6 +15,29 @@ from sklearn import svm
 from sklearn.linear_model import SGDClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
+from sklearn.linear_model import LogisticRegression
+
+class TextClassifier:
+
+    def __init__(self, base_classifiers):
+        self.base_classifiers = base_classifiers
+        self.best_classifier = base_classifiers[0]
+
+
+    def fit(self, X, y):
+        best_quality = 0.0
+        for classifier in self.base_classifiers:
+            classifier.fit(X, y)
+            new_quality = np.mean(cross_val_score(classifier, X_train, np.array(Y_train)))
+            if (new_quality > best_quality):
+                best_quality = new_quality
+                self.best_classifier = classifier
+
+    def predict(self, X):
+        return self.best_classifier.predict(X)
+
+
+
 
 """
 При запуске программы указывать путь к папке с коллекцией документов Reuters-21578
@@ -41,27 +64,27 @@ count_vect = CountVectorizer(decode_error='ignore')
 """
 Обучающая выборка
 """
-text_data = [line["body"] for line in rp.get_corpus()["train"] if len(line["topics"]) != 0]
+text_data = [line["body"] for line in rp.get_corpus()["train"] if len(line["orgs"]) != 0]
 X_train = count_vect.fit_transform(text_data)
 
 tfidf_transformer = TfidfTransformer()
 X_train_tfidf = tfidf_transformer.fit_transform(X_train)
 
-Y_train = [line["topics"][0] for line in rp.get_corpus()["train"] if len(line["topics"]) != 0]
+Y_train = [line["orgs"][0] for line in rp.get_corpus()["train"] if len(line["orgs"]) != 0]
 
 
 """
 Тестовая выборка
 """
 test_samples = rp.get_corpus()["test"]
-text_data_test = [line["body"] for line in rp.get_corpus()["test"]  if len(line["topics"]) != 0]
+text_data_test = [line["body"] for line in rp.get_corpus()["test"]  if len(line["orgs"]) != 0]
 
 X_test = count_vect.transform(text_data_test)
 
 
 X_test_tfidf = tfidf_transformer.transform(X_test)
 
-Y_test = [line["topics"][0] for line in test_samples  if len(line["topics"]) != 0]
+Y_test = [line["orgs"][0] for line in test_samples  if len(line["orgs"]) != 0]
 
 
 
@@ -99,6 +122,13 @@ LinearSVC
 
 print "LinearSVC:"
 study_classifier(LinearSVC(), X_train_tfidf, Y_train, X_test_tfidf, Y_test)
+
+textClassifier = TextClassifier([sgdc, LinearSVC()])
+textClassifier.fit(X_train_tfidf, Y_train)
+predicted = textClassifier.predict(X_test_tfidf)
+
+print "TextClassifier"
+print np.mean(predicted == Y_test)
 
 
 
