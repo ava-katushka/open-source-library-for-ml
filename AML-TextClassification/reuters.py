@@ -75,8 +75,8 @@ class ReutersParser(HTMLParser):
                 else:
                     self.__docs["test"].append(self.__tags_store)
                 self.__reset()
-            elif ( tag == 'topics' or tag == 'places' or tag == 'people' or tag == 'orgs' \
-                or tag =='exchanges' ): #TODO: or tag == 'companies' нет информации о всех возможных именах компаний
+            elif ( tag == "topics" or tag == "places" or tag == "people" or tag == "orgs" \
+                or tag =="exchanges" ): #TODO: or tag == 'companies' нет информации о всех возможных именах компаний
 
                 self.__tags_store[tag] = [ self.all_types_to_numbers[tag][item] for item in self.__d_store]
                 self.__is_d_tag = 0
