@@ -37,7 +37,7 @@ class ReutersParser(HTMLParser):
         self.all_types_to_numbers = {}
         for filename in glob(os.path.join(path_to_reuters, "*.lc.txt")):
             with open(filename, "r") as f:
-                categ_name = filename[filename.index("-") + 1 : filename.rindex("-")]
+                categ_name = filename[filename[:filename.rindex("-") - 1].rindex("-") + 1 : filename.rindex("-")]
                 self.numbers_to_types[categ_name] = [item.strip() for item in f.read().split("\n")]
                 self.all_types_to_numbers[ categ_name ] = {}
                 for i in range( len(self.numbers_to_types[categ_name]) ):
