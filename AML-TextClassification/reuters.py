@@ -42,7 +42,6 @@ class ReutersParser(HTMLParser):
                 self.all_types_to_numbers[ categ_name ] = {}
                 for i in range( len(self.numbers_to_types[categ_name]) ):
                     self.all_types_to_numbers[ categ_name ][ self.numbers_to_types[categ_name][i] ] = i
-		    print categ_name
         self.__reset()
         self.__func_sample = "use_" + sample + "_sample"
         #self.encoding = encoding
