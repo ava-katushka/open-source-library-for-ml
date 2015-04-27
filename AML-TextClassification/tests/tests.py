@@ -7,7 +7,7 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.svm import LinearSVC
 from sklearn import metrics
 
-sys.path.append("..")
+sys.path.append("./AML-TextClassification")
 import reuters
 from textclassifier import TextClassifier
 
@@ -15,7 +15,7 @@ from textclassifier import TextClassifier
 class TextClassifierTest(unittest.TestCase):
 
     def setUp(self):
-        data_path = "./../data"
+        data_path = "./AML-TextClassification/data"
         rp = reuters.ReutersParser(data_path)
         rp.parse()
         self.X_train = rp.get_corpus("train", "topics", "data")
