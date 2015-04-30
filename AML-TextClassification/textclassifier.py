@@ -19,9 +19,10 @@ from sklearn.linear_model import LogisticRegression
 from sklearn import metrics
 
 
+
 class TextClassifier:
 
-    def __init__(self, base_classifiers = [SGDClassifier(), LinearSVC()], scoring = "auc"):
+    def __init__(self, base_classifiers = [SGDClassifier(), LinearSVC()], scoring = "auc", multilabel = True ):
         """
         Parameters:
             base_classifiers: должны иметь методы fit, predict
@@ -29,15 +30,18 @@ class TextClassifier:
 
             scoring: precision, recall, f1
             указывает способ подбора лучшего классификатора
+
+            multilabel: boolean
         """
         self.base_classifiers = base_classifiers
         self.best_classifier = base_classifiers[0]
         self.count_vect = CountVectorizer(decode_error='ignore')
         self.tfidf_transformer = TfidfTransformer()
+        self.is_multilabel = multilabel
 
     def __feature_selection(self, text_data):
         """
-        Получаем разреженную матрицу текстовых признаков
+        Return sparse matrix of text features
         """
 
         X = self.count_vect.fit_transform(text_data)
@@ -52,17 +56,25 @@ class TextClassifier:
     def fit(self, X, y):
         best_quality = 0.0
         X_features = self.__feature_selection(X)
-        for classifier in self.base_classifiers:
-            new_quality = np.mean(cross_val_score(classifier, X_features, np.array(y)))
-            if (new_quality > best_quality):
-                best_quality = new_quality
-                self.best_classifier = classifier
+       
+        if (self.is_multilabel):
+            pass
+        else: 
+            for classifier in self.base_classifiers:
+                new_quality = np.mean(cross_val_score(classifier, X_features, np.array(y)))
+                if (new_quality > best_quality):
+                    best_quality = new_quality
+                    self.best_classifier = classifier
+
         self.best_classifier.fit(X_features, y)
 
     def predict(self, X):
         X_features = self.__transform_features(X)
         return self.best_classifier.predict(X_features)
 
+    def predict_proba(self, X):
+        X_features = self.__transform_features(X)
+        return self.best_classifier.predict_proba(X_features)
 
 
 

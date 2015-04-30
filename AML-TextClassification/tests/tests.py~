@@ -15,7 +15,7 @@ from textclassifier import TextClassifier
 class TextClassifierTest(unittest.TestCase):
 
     def setUp(self):
-        data_path = "./../data"
+        data_path = "./AML-TextClassification/data"
         rp = reuters.ReutersParser(data_path)
         rp.parse()
         self.X_train = rp.get_corpus("train", "topics", "data")
@@ -35,7 +35,7 @@ class TextClassifierTest(unittest.TestCase):
         penalty='l2', power_t=0.5, random_state=None, shuffle=True,
         verbose=0, warm_start=False)
 
-        textClassifier = TextClassifier(base_classifiers =[sgdc, LinearSVC()], multilabel = False)
+        textClassifier = TextClassifier(base_classifiers =[sgdc, LinearSVC()])
         textClassifier.fit(self.X_train, self.Y_train)
         predicted = textClassifier.predict(self.X_test)
         base_quality = 0.6
@@ -50,7 +50,7 @@ class TextClassifierTest(unittest.TestCase):
         penalty='l2', power_t=0.5, random_state=None, shuffle=True,
         verbose=0, warm_start=False)
 
-        textClassifier = TextClassifier(base_classifiers =[sgdc, LinearSVC()], multilabel = False)
+        textClassifier = TextClassifier(base_classifiers =[sgdc, LinearSVC()])
         textClassifier.fit(self.X_train, self.Y_train)
         predicted = textClassifier.predict(self.X_test)
         advanced_quality = 0.8
