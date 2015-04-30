@@ -16,7 +16,7 @@ class TextClassifierTest(unittest.TestCase):
 
     def setUp(self):
         data_path = "./../data"
-        rp = reuters.ReutersParser(data_path)
+        rp = reuters.ReutersParser(data_path, multilabel = False)
         rp.parse()
         self.X_train = rp.get_corpus("train", "topics", "data")
 
