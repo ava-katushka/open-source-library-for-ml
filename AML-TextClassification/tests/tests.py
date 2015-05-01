@@ -8,6 +8,7 @@ from sklearn.svm import LinearSVC
 from sklearn import metrics
 
 sys.path.append("./AML-TextClassification")
+
 import reuters
 from textclassifier import TextClassifier
 
@@ -15,7 +16,7 @@ from textclassifier import TextClassifier
 class TextClassifierTest(unittest.TestCase):
 
     def setUp(self):
-        data_path = "./../data"
+        data_path = "./AML-TextClassification/data"
         rp = reuters.ReutersParser(data_path, multilabel = False)
         rp.parse()
         self.X_train = rp.get_corpus("train", "topics", "data")
@@ -59,4 +60,5 @@ class TextClassifierTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main(testRunner=xmlrunner.XMLTestRunner(output='test-reports'))
+    
     

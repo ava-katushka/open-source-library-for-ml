@@ -101,7 +101,7 @@ class ReutersParser(HTMLParser):
                 or tag =="exchanges" ): #TODO: or tag == 'companies' нет информации о всех возможных именах компаний
                 if (self.is_multilabel):
                     self.__tags_store[tag] =  ((self.target_dict_vectorizer[tag].transform( { item:1 for item in self.__d_store} ))).toarray()[0]
-                else:  
+                else: 
                     self.__tags_store[tag] = [ self.all_types_to_numbers[tag][item] for item in self.__d_store]
                 self.__is_d_tag = 0
                 self.__d_store = []
