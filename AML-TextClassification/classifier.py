@@ -17,7 +17,7 @@ from textclassifier import TextClassifier
 """
     
 data_path = sys.argv[1]
-rp = reuters.ReutersParser(data_path, multilabel = False)
+rp = reuters.ReutersParser(data_path, multilabel = True)
 """
 считываем и "парсим" данные
 """
@@ -54,7 +54,7 @@ sgdc = SGDClassifier(alpha=0.0001, class_weight=None, epsilon=0.1,
         verbose=0, warm_start=False)
 
 
-textClassifier = TextClassifier()
+textClassifier = TextClassifier(multilabel = True)
 #base_classifiers =[OneVsRestClassifier(sgdc)]
 textClassifier.fit(X_train, Y_train)
 
@@ -76,9 +76,6 @@ for i in range(len(predicted)):
 
 print "TextClassifier"
 
-print np.mean(predicted == Y_test)
-print "precision: ",  metrics.precision_score(Y_test, predicted, average = 'micro')
-print "recall: ", metrics.recall_score(Y_test, predicted, average = 'micro')
-print "f1: ", metrics.f1_score(Y_test, predicted, average = 'micro')
+textClassifier.score(predicted, Y_test)
 
 
