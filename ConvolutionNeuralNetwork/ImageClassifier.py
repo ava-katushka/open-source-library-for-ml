@@ -35,14 +35,16 @@ class CNN(object):
              
 
     """
-    def __init__(self, input, n_in=1, n_out=2, activation=T.tanh,
-                 nkerns=[20,50],
-                 filters=[15,9],
-                 poolsize=[(3,3),(2,2)],
-                 n_hidden=500,
-                 output_type='softmax', batch_size=25):
+    def __init__(self, input, n_in, n_out, activation,
+                 nkerns,
+                 filters,
+                 poolsize,
+                 n_hidden,
+                 output_type, batch_size):
 
         """
+
+        :rtype : int
         n_in : width (or length) of input image (assumed square)
         n_out : number of class labels
         
@@ -191,16 +193,16 @@ class ImageClassifier(BaseEstimator):
     the number of outputs in .fit from the training data
 
     """
-    def __init__(self, learning_rate=0.05,
-                 n_epochs=60, batch_size=25, activation='tanh', 
-                 nkerns=[20,45],
+    def __init__(self, learning_rate=0.1,
+                 n_epochs=3, batch_size=500, activation='tanh',
+                 nkerns=[20,50],
                  n_hidden=500,
-                 filters=[15,7],
-                 poolsize=[(3,3),(2,2)],
+                 filters=[5,5],
+                 poolsize=[(2,2),(2,2)],
                  output_type='softmax',
                  L1_reg=0.00, L2_reg=0.00,
                  n_in=50, n_out=2):
-        self.learning_rate = float(learning_rate)
+        self.learning_rate = learning_rate
         self.nkerns = nkerns
         self.n_hidden = n_hidden
         self.filters = filters
@@ -236,7 +238,8 @@ class ImageClassifier(BaseEstimator):
         else:
             raise NotImplementedError
         
-        self.cnn = CNN(input=self.x, n_in=self.n_in, 
+        self.cnn = CNN(input=self.x, 
+                       n_in=self.n_in, 
                        n_out=self.n_out, activation=activation, 
                        nkerns=self.nkerns,
                        filters=self.filters,
@@ -316,9 +319,9 @@ class ImageClassifier(BaseEstimator):
 
         index = T.lscalar('index')    # index to a [mini]batch
 
-        cost = self.cnn.loss(self.y)\
-            + self.L1_reg * self.cnn.L1\
-            + self.L2_reg * self.cnn.L2_sqr
+        cost = self.cnn.loss(self.y)
+            #+ self.L1_reg * self.cnn.L1\
+            #+ self.L2_reg * self.cnn.L2_sqr
 
         compute_train_error = theano.function(inputs=[index, ],
                                               outputs=self.cnn.loss(self.y),
@@ -386,25 +389,25 @@ class ImageClassifier(BaseEstimator):
                     train_losses = [compute_train_error(i)
                                     for i in xrange(n_train_batches)]
                     this_train_loss = np.mean(train_losses)
-
-                    test_losses = [compute_test_error(i)
+                    if interactive:
+                        test_losses = [compute_test_error(i)
                                     for i in xrange(n_test_batches)]
-                    this_test_loss = np.mean(test_losses)
-                    note = 'epoch %i, seq %i/%i, tr loss %f '\
+                        this_test_loss = np.mean(test_losses)
+                        note = 'epoch %i, seq %i/%i, tr loss %f '\
                         'te loss %f lr: %f' % \
                         (epoch, idx + 1, n_train_batches,
                          this_train_loss, this_test_loss, self.learning_rate)
-                    print note
+                        print note
 
-                    if this_test_loss < best_test_loss:
-                        #improve patience if loss improvement is good enough
-                        if this_test_loss < best_test_loss *  \
-                                improvement_threshold:
-                            patience = max(patience, iter * patience_increase)
+                        if this_test_loss < best_test_loss:
+                            #improve patience if loss improvement is good enough
+                            if this_test_loss < best_test_loss *  \
+                                    improvement_threshold:
+                                patience = max(patience, iter * patience_increase)
 
-                        # save best validation score and iteration number
-                        best_test_loss = this_test_loss
-                        best_iter = iter
+                            # save best validation score and iteration number
+                            best_test_loss = this_test_loss
+                            best_iter = iter
 
 
                 if patience <= iter:
