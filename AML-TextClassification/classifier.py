@@ -29,11 +29,7 @@ Train sample
 """
 X_train = rp.get_corpus("train", "topics", "data")
 
-#selector = VarianceThreshold()
-
-
 Y_train = rp.get_corpus("train", "topics", "target")
-#Y_train = selector.fit_transform(Y_train)
 
 """
 Test sample
@@ -41,11 +37,8 @@ Test sample
 X_test = rp.get_corpus("test", "topics", "data")
 
 Y_test = rp.get_corpus("test", "topics", "target")
-#Y_test = selector.transform(Y_test)
 
 print "OK"
-#sel = VarianceThreshold()
-#Y_test = sel.fit_transform(Y_test)
 
 sgdc = SGDClassifier(alpha=0.0001, class_weight=None, epsilon=0.1,
         eta0=0.0, fit_intercept=True, l1_ratio=0.15,
@@ -54,28 +47,14 @@ sgdc = SGDClassifier(alpha=0.0001, class_weight=None, epsilon=0.1,
         verbose=0, warm_start=False)
 
 
-textClassifier = TextClassifier(multilabel = True)
-#base_classifiers =[OneVsRestClassifier(sgdc)]
-textClassifier.fit(X_train, Y_train)
+textClassifier = TextClassifier(multilabel = True, with_titles = True)
+q = textClassifier.fit(X_train, Y_train, rp.get_corpus("train", "topics", "title"))
+print np.mean(cross_val_score(textClassifier, X_train, Y_train))
 
-predicted = textClassifier.predict(X_test)
-#predicted = sel.transform(predicted)
-
-base = 1;
-"""
-for i in range(len(predicted)):
-    #p = [line[i] for line in predicted]
-    #y = [line[i] for line in Y_test]
-    #print  len(p)
-    #m = metrics.roc_auc_score(y, p)
-    print predicted[i], Y_test[i]
-    print "___________________---"
-    #if (m < base):
-     #   base = m
-"""
-
-print "TextClassifier"
+predicted = textClassifier.predict(X_test, rp.get_corpus("test", "topics", "title"))
 
 textClassifier.score(predicted, Y_test)
+
+
 
 

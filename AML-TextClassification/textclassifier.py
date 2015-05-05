@@ -24,7 +24,7 @@ from sklearn.feature_selection import VarianceThreshold
 
 class TextClassifier:
 
-    def __init__(self, base_classifiers = [SGDClassifier()], scoring = "auc", multilabel = True ):
+    def __init__(self, base_classifiers = [SGDClassifier()], scoring = "auc", multilabel = True, with_titles = False ):
         """
         Parameters:
             base_classifiers: должны иметь методы fit, predict
@@ -40,6 +40,7 @@ class TextClassifier:
         self.count_vect = CountVectorizer(decode_error='ignore')
         self.tfidf_transformer = TfidfTransformer()
         self.is_multilabel = multilabel
+        self.with_titles = with_titles
 
     def __feature_selection(self, text_data):
         """
@@ -55,10 +56,13 @@ class TextClassifier:
         X_tfidf = self.tfidf_transformer.transform(X)
         return X_tfidf
 
-    def fit(self, X, y):
+    def fit(self, X, y, titles = None):
         best_quality = 0.0
-        
-        X_features = self.__feature_selection(X)
+        if (self.with_titles):
+            X_train = [X[i] + ' ' + titles[i] for i in range(len(X))]
+        else:
+            X_train = X
+        X_features = self.__feature_selection(X_train)
         if (self.is_multilabel):
             """
             remove target features, that are equal in all objects
@@ -66,6 +70,7 @@ class TextClassifier:
             self.selector = VarianceThreshold()
             Y = self.selector.fit_transform(y)
             self.best_classifier = OneVsRestClassifier(self.best_classifier)
+
         else: 
             for classifier in self.base_classifiers:
                 new_quality = np.mean(cross_val_score(classifier, X_features, np.array(y)))
@@ -74,10 +79,17 @@ class TextClassifier:
                     self.best_classifier = classifier
             Y = y
 
-        self.best_classifier.fit(X_features, Y)
 
-    def predict(self, X):
-        X_features = self.__transform_features(X)
+        self.best_classifier.fit(X_features, Y)
+        if (self.is_multilabel):
+            return self.selector.get_support()
+
+    def predict(self, X, titles = None):
+        if (self.with_titles):
+            X_train = [X[i] + ' ' + titles[i] for i in range(len(X))]
+        else:
+            X_train = X
+        X_features = self.__transform_features(X_train)
         return self.best_classifier.predict(X_features)
 
     def predict_proba(self, X):
