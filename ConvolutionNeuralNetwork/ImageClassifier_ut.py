@@ -4,6 +4,7 @@
 """
 
 import unittest
+import xmlrunner
 import numpy as np
 
 from sklearn.datasets import load_digits
@@ -47,6 +48,5 @@ class TestImageClassifier(unittest.TestCase):
         assert_equal(clf.predict_proba(X[:2]).shape, proba_shape)
         assert_equal(clf.predict(X[:2]).shape, y[:2].shape)
 
-
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='test-reports'))
