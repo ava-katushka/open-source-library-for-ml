@@ -1,15 +1,3 @@
-import unittest
-<<<<<<< HEAD
-import xmlrunner
-
-class TextClassifierTest(unittest.TestCase):
-
-    def test_upper(self):
-      self.assertEqual('foo'.upper(), 'FOO')
-
-if __name__ == '__main__':
-    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='test-reports'))
-=======
 
 import sys
 import xmlrunner
@@ -72,5 +60,4 @@ class TextClassifierTest(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main(testRunner=xmlrunner.XMLTestRunner(output='test-reports'))
     
-    
->>>>>>> feature/AML-129-multilabel
+   
