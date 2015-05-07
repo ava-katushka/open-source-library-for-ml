@@ -1,5 +1,5 @@
 import theano
-import numpy
+import numpy as np
 import theano.tensor as T
 from theano.tensor.signal import downsample
 from theano.tensor.nnet import conv
@@ -91,12 +91,12 @@ class SoftmaxLayer(object):
         :param n_out: number of output units, the dimension of the space in which the labels lie
 
         """
-        self.W = theano.shared(value = numpy.zeros((n_in, n_out), dtype=theano.config.floatX),
+        self.W = theano.shared(value = np.zeros((n_in, n_out), dtype=theano.config.floatX),
             name='W',
             borrow=True
         )
         # initialize the baises b as a vector of n_out 0s
-        self.b = theano.shared(value=numpy.zeros((n_out,), dtype=theano.config.floatX),
+        self.b = theano.shared(value=np.zeros((n_out,), dtype=theano.config.floatX),
             name='b',
             borrow=True
         )
@@ -179,7 +179,7 @@ class FullyConnectedLayer(object):
         sigmoidal activation function. Weight matrix W is of shape (n_in,n_out)
         and the bias vector b is of shape (n_out,).
 
-        :type rng: numpy.random.RandomState
+        :type rng: np.random.RandomState
         :param rng: a random number generator used to initialize weights
 
         :type input: theano.tensor.dmatrix
@@ -201,10 +201,10 @@ class FullyConnectedLayer(object):
         # from sqrt(-6./(n_in+n_hidden)) and sqrt(6./(n_in+n_hidden))
         # for tanh activation function
         if W is None:
-            W_values = numpy.asarray(
+            W_values = np.asarray(
                 rng.uniform(
-                    low=-numpy.sqrt(6. / (n_in + n_out)),
-                    high=numpy.sqrt(6. / (n_in + n_out)),
+                    low=-np.sqrt(6. / (n_in + n_out)),
+                    high=np.sqrt(6. / (n_in + n_out)),
                     size=(n_in, n_out)
                 ),
                 dtype=theano.config.floatX
@@ -215,7 +215,7 @@ class FullyConnectedLayer(object):
             W = theano.shared(value=W_values, name='W', borrow=True)
 
         if b is None:
-            b_values = numpy.zeros((n_out,), dtype=theano.config.floatX)
+            b_values = np.zeros((n_out,), dtype=theano.config.floatX)
             b = theano.shared(value=b_values, name='b', borrow=True)
 
         self.W = W
@@ -236,7 +236,7 @@ class ConvLayer(object):
         """
         Allocate a ConvLayer with shared variable internal parameters.
 
-        :type rng: numpy.random.RandomState
+        :type rng: np.random.RandomState
         :param rng: a random number generator used to initialize weights
 
         :type input: theano.tensor.dtensor4
@@ -257,14 +257,14 @@ class ConvLayer(object):
 
         # there are "num input feature maps * filter height * filter width"
         # inputs to each hidden unit
-        fan_in = numpy.prod(filter_shape[1:])
+        fan_in = np.prod(filter_shape[1:])
         # each unit in the lower layer receives a gradient from:
         # "num output feature maps * filter height * filter width"
-        fan_out = (filter_shape[0] * numpy.prod(filter_shape[2:]))
+        fan_out = (filter_shape[0] * np.prod(filter_shape[2:]))
         # initialize weights with random weights
-        W_bound = numpy.sqrt(6. / (fan_in + fan_out))
+        W_bound = np.sqrt(6. / (fan_in + fan_out))
         self.W = theano.shared(
-            numpy.asarray(
+            np.asarray(
                 rng.uniform(low=-W_bound, high=W_bound, size=filter_shape),
                 dtype=theano.config.floatX
             ),
@@ -272,7 +272,7 @@ class ConvLayer(object):
         )
 
         # the bias is a 1D tensor -- one bias per output feature map
-        b_values = numpy.zeros((filter_shape[0],), dtype=theano.config.floatX)
+        b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
         self.b = theano.shared(value=b_values, borrow=True)
 
 
