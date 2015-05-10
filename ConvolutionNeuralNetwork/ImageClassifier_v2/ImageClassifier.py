@@ -1,7 +1,4 @@
 import cPickle as pickle
-import logging
-import numpy as np
-
 from sklearn.base import BaseEstimator
 import theano
 import theano.tensor as T
@@ -40,7 +37,8 @@ class CNN(object):
                  filters,
                  poolsize,
                  n_hidden,
-                 output_type, batch_size):
+                 output_type, batch_size,
+                 num_layers):
 
         """
 
@@ -77,7 +75,7 @@ class CNN(object):
 
         # Reshape matrix of rasterized images of shape (batch_size, nx*ny)
         # to a 4D tensor, compatible with our LeNetConvPoolLayer
-        layer0_input = input.reshape((batch_size, 1, nx, ny))
+        _input = input.reshape((batch_size, 1, nx, ny))
 
         # Construct the first convolutional pooling layer:
         # filtering reduces the image size to (nx-5+1,ny-5+1)=(24,24)
@@ -85,48 +83,47 @@ class CNN(object):
         # 4D output tensor is thus of shape (batch_size,nkerns[0],12,12)
         nim = filters[0]
         rng = np.random.RandomState(42)
-        self.layer0 = LeNetConvPoolLayer(rng, input=layer0_input,
-                                  image_shape=(batch_size, 1, nx, ny),
-                                  filter_shape=(nkerns[0], 1, nim, nim),
-                                         poolsize=poolsize[0])
-        # Construct the second convolutional pooling layer
-        # filtering reduces the image size to (nbin-nim+1,nbin-nim+1) = x
-        # maxpooling reduces this further to (x/2,x/2) = y
-        # 4D output tensor is thus of shape (nkerns[0],nkerns[1],y,y)
-        poox = (nx - nim + 1)/poolsize[0][0]
-        pooy = (ny - nim + 1)/poolsize[0][1]
-        nconf = filters[1]
-        self.layer1 = LeNetConvPoolLayer(rng, input=self.layer0.output,
-                image_shape=(batch_size, nkerns[0], poox, pooy),
-                filter_shape=(nkerns[1], nkerns[0], nconf, nconf),
-                                         poolsize=poolsize[1])
 
-        # the TanhLayer being fully-connected, it operates on 2D matrices of
-        # shape (batch_size,num_pixels) (i.e matrix of rasterized images).
-        # This will generate a matrix of shape (20,32*4*4) = (20,512)
-        layer2_input = self.layer1.output.flatten(2)
+        self.params = []
+        self.layers = []
 
-       # construct a fully-connected sigmoidal layer
-        poo2x = (poox-nconf+1)/poolsize[1][0]
-        poo2y = (pooy-nconf+1)/poolsize[1][1]
-        self.layer2 = FullyConnectedLayer(rng, input=layer2_input,
-                                  n_in=nkerns[1]*poo2x*poo2y,
+        input_size = 1
+        out_size = filters[0]
+        for i in range(num_layers):
+            self.layers.append(LeNetConvPoolLayer(rng, input=_input,
+                                      image_shape=(batch_size, input_size, nx, ny),
+                                      filter_shape=(out_size, input_size, filters[i], filters[i]),
+                                             poolsize=poolsize[i]))
+            self.params.extend(self.layers[-1].params)
+            nx = (nx - filters[i] + 1)/poolsize[i][0]
+            ny = (ny - filters[i] + 1)/poolsize[i][1]
+            input_size = out_size
+            if i+1 < num_layers:
+                out_size = nkerns[i+1]
+            _input = self.layers[-1].output
+
+        fullyconnected_input = self.layers[-1].output.flatten(2)
+        self.fullyconnected = FullyConnectedLayer(rng, input=fullyconnected_input,
+                                  n_in=out_size*ny*nx,
                                   n_out=n_hidden, activation=T.tanh)
 
         # classify the values of the fully-connected sigmoidal layer
-        self.layer3 = SoftmaxLayer(input=self.layer2.output,
+        self.softmax = SoftmaxLayer(input=self.fullyconnected.output,
                                          n_in=n_hidden, n_out=n_out)
 
+        self.params.extend(self.fullyconnected.params)
+        self.params.extend(self.softmax.params)
+        self.params.reverse()
         # CNN regularization
-        self.L1 = self.layer3.L1
-        self.L2_sqr = self.layer3.L2_sqr
+        self.L1 = self.softmax.L1
+        self.L2_sqr = self.softmax.L2_sqr
         
         # create a list of all model parameters to be fit by gradient descent
-        self.params = self.layer3.params + self.layer2.params\
-            + self.layer1.params + self.layer0.params
+        #self.params = self.softmax.params + self.layer2.params\
+        #    + self.layer1.params + self.layer0.params
 
-        self.y_pred = self.layer3.y_pred
-        self.p_y_given_x = self.layer3.p_y_given_x
+        self.y_pred = self.softmax.y_pred
+        self.p_y_given_x = self.softmax.p_y_given_x
 
         if self.output_type == 'real':
             self.loss = lambda y: self.mse(y)
@@ -201,7 +198,8 @@ class ImageClassifier(BaseEstimator):
                  poolsize=[(2,2),(2,2)],
                  output_type='softmax',
                  L1_reg=0.00, L2_reg=0.00,
-                 n_in=50, n_out=2):
+                 n_in=50, n_out=2,
+                 num_layers=2):
         self.learning_rate = learning_rate
         self.nkerns = nkerns
         self.n_hidden = n_hidden
@@ -215,7 +213,7 @@ class ImageClassifier(BaseEstimator):
         self.output_type = output_type
         self.n_in = n_in
         self.n_out = n_out
-
+        self.num_layers = num_layers
     def ready(self):
         """
         this routine is called from "fit" since we determine the
@@ -247,6 +245,7 @@ class ImageClassifier(BaseEstimator):
                        poolsize=self.poolsize,
                        output_type=self.output_type,
                        batch_size=self.batch_size,
+                       num_layers=self.num_layers
                        )
         
         #self.cnn.predict expects batch_size number of inputs. 
