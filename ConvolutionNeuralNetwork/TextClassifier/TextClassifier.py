@@ -1,20 +1,29 @@
 # -*- coding: utf-8 -*-
 
 import numpy
-
+import re
+from nltk.corpus import stopwords
+from sklearn.base import BaseEstimator
+import cPickle as pickle
+from math import sqrt
 import theano
 import theano.tensor as T
 from theano.tensor.nnet import conv
-
+import pandas as pd
 from gensim.models import Word2Vec
+
 import sys
 sys.path.insert(0, '../ImageClassifier_v2')
 import Layers
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+
 class ConvLayerForSentences(object):
     """Свёрточный слой для классификации предложений"""
 
-    def __init__(self, rng, input, filter_shape=(10, 1, 5, 400),
+    def __init__(self, rng, input_data, filter_shape=(10, 1, 5, 100),
                  sentences_shape=None, activation=T.tanh):
         """
         Инициализирует ConvLayerForSentences с общими переменными внутренних параметров.
@@ -22,8 +31,8 @@ class ConvLayerForSentences(object):
         :type rng: numpy.random.RandomState
         :param rng: генератор случайных чисел для инициализации весов
 
-        :type input: theano.tensor.dtensor4
-        :param input: символичный тензор предложений формата sentences_shape
+        :type input_data: theano.tensor.dtensor4
+        :param input_data: символичный тензор предложений формата sentences_shape
 
         :type filter_shape: tuple или list длины 4
         :param filter_shape: (количество фильтров, количество входных каналов (для первой свёртки = 1),
@@ -40,28 +49,22 @@ class ConvLayerForSentences(object):
         if sentences_shape is not None:
             # проверяю совпадение размерности вектора слова
             assert sentences_shape[4] == filter_shape[4]
-        self.input = input
+        self.input = input_data
 
-        # "num input feature maps * filter height * filter width"
-        fan_in = numpy.prod(filter_shape[1:])
-
-        # "num output feature maps * filter height * filter width"
-        fan_out = (filter_shape[0] * numpy.prod(filter_shape[2:]))
-        # инициализация весов рандомными числами
-        W_bound = numpy.sqrt(6. / (fan_in + fan_out))
+        W_bound = int(1)
         # каждая карта входных признаков соединена с каждым фильтром,
         # поэтому и такая размерность у матрицы весов
         self.W = theano.shared(
-            numpy.asarray(
-                rng.uniform(low=-W_bound, high=W_bound, size=filter_shape),
-                dtype=theano.config.floatX
+            numpy.asarray(rng.uniform(low=-W_bound, high=W_bound,
+                                      size=filter_shape),
+                          dtype=theano.config.floatX
             ),
             borrow=True
         )
 
         # символическое выражение, выполняющее операцию свёртки с помощью фильтров
         conv_out = conv.conv2d(
-            input=input,
+            input=input_data,
             filters=self.W,
             filter_shape=filter_shape,
             image_shape=sentences_shape
@@ -81,20 +84,18 @@ class ConvLayerForSentences(object):
 
 
 class MaxOverTimePoolingLayer(object):
-    def __init__(self, pooling_input):
+    def __init__(self, pooling_input, n_filters):
         """
         Записывет максимальные значения по оси, отвечающей результату одного фильтра
         Один максимум для одного фильтра - для простейшего варианта - ширина фильтра =
         размерности слова
-        :type pooling_input: tuple размерности 3: количество входных карт признаков,
-                            высота - итоговое количество окон для одного фильтра. ширина = 1
-        :param pooling_input: выход фильтрации
+        :type pooling_input: символичный тензор размера:
+                            (количество входных карт признаков(число фильтров),
+                            высота - итоговое количество окон предложения для одного фильтра)
+        :param pooling_input: вход для пулинга
         """
-        assert pooling_input.shape[2] == 1
-        pooling_input.reshape(pooling_input.shape[0], pooling_input.shape[1])
-        nums_filters = pooling_input.shape[0]
         max_args = T.argmax(pooling_input, axis=1)
-        self.output = pooling_input[range(nums_filters), max_args]
+        self.output = pooling_input[xrange(n_filters), max_args]
 
 
 class KMaxPoolingLayer(object):
@@ -122,7 +123,7 @@ class CNNForSentences(object):
     Свёрточная сеть с одним свёрточным слоем
     """
     def __init__(self, input, n_out, n_hidden, output_type,
-                 n_filters, window, activation=T.tanh, seed=0):
+                 n_filters, window, word_dimension, activation=T.tanh, seed=0):
         """
         :type input: theano.tensor.dtensor4
         :param input: символичный тензор предложений формата:
@@ -143,16 +144,17 @@ class CNNForSentences(object):
         self.softmax = T.nnet.softmax
 
         rng = numpy.random.RandomState(seed)
-        word_dimension = input.shape[3]
+        # assert word_dimension == input.shape[3]
 
-        self.layer0 = ConvLayerForSentences(rng, input=input, filter_shape=(n_filters, 1, window,
-                                                                            word_dimension))
+        self.layer0 = ConvLayerForSentences(rng, input_data=input, filter_shape=(n_filters, 1,
+                                                                                 window,
+                                                                                 word_dimension))
 
-        self.layer1 = MaxOverTimePoolingLayer(self.layer0.output)
+        self.layer1 = MaxOverTimePoolingLayer(self.layer0.output, n_filters)
+        layer2_input = self.layer1.output.flatten(2)
         # После этого слоя осталось ровно n_filters элементов
-
-        self.layer2 = Layers.FullyConnectedLayer(rng, input=self.layer1.output,
-                                                 n_in=self.layer1.output.shape[0],
+        self.layer2 = Layers.FullyConnectedLayer(rng, input=layer2_input,
+                                                 n_in=n_filters,
                                                  n_out=n_hidden, activation=activation)
 
         # classify the values of the fully-connected sigmoidal layer
@@ -225,3 +227,321 @@ class CNNForSentences(object):
                 return T.mean(T.neq(self.y_pred, y))
             else:
                 raise NotImplementedError()
+
+
+def text_to_wordlist(text, remove_stopwords=False):
+    text = re.sub("[^a-zA-Z]"," ", text)
+    words = text.lower().split()
+    # Optionally remove stop words (false by default)
+    if remove_stopwords:
+        stops = set(stopwords.words("english"))
+        words = [w for w in words if not w in stops]
+    # 5. Return a list of words
+    return words
+
+
+def make_feature_matrix(words, model, num_features):
+    review_feature_vecs = numpy.zeros((len(words), num_features), dtype="float32")
+    counter = 0.
+    for word in words:
+        review_feature_vecs[counter] = model[word]
+        counter += 1
+    return review_feature_vecs
+
+num_features = 300    # Word vector dimensionality
+min_word_count = 40   # Minimum word count
+num_workers = 4       # Number of threads to run in parallel
+context = 10          # Context window size
+downsampling = 1e-3
+
+
+class TextClassifier(BaseEstimator):
+
+    def __init__(self, learning_rate=0.1, n_epochs=3, activation='tanh', window=5,
+                 n_hidden=10, n_filters=30, pooling_type='max_overtime',
+                 output_type='softmax', L1_reg=0.00, L2_reg=0.00, n_out=2, word_dimension=100):
+        self.learning_rate = learning_rate
+        self.n_hidden = n_hidden
+        self.n_epochs = int(n_epochs)
+        self.L1_reg = float(L1_reg)
+        self.L2_reg = float(L2_reg)
+        self.activation = activation
+        self.output_type = output_type
+        self.n_out = n_out
+        self.n_filters = n_filters
+        self.pooling_type = pooling_type
+        self.window = window
+        self.word_dimension = word_dimension
+
+    def ready(self):
+        """
+        this routine is called from "fit" since we determine the
+        image size (assumed square) and output labels from the training data.
+
+        """
+        #input
+        self.x = T.matrix('x')
+        #output (a label)
+        self.y = T.ivector('y')
+
+        self.x = self.x.dimshuffle('x', 'x', 0, 1)
+
+        if self.activation == 'tanh':
+            activation = T.tanh
+        elif self.activation == 'sigmoid':
+            activation = T.nnet.sigmoid
+        elif self.activation == 'relu':
+            activation = lambda x: x * (x > 0)
+        elif self.activation == 'cappedrelu':
+            activation = lambda x: T.minimum(x * (x > 0), 6)
+        else:
+            raise NotImplementedError
+
+        self.cnn = CNNForSentences(input=self.x,
+                       n_out=self.n_out, activation=activation,
+                       n_hidden=self.n_hidden, n_filters=self.n_filters,
+                       output_type=self.output_type, window=self.window,
+                       word_dimension=self.word_dimension)
+
+        #self.cnn.predict expects batch_size number of inputs.
+        #we wrap those functions and pad as necessary in 'def predict' and 'def predict_proba'
+        self.predict_wrap = theano.function(inputs=[self.x], outputs=self.cnn.y_pred)
+        self.predict_proba_wrap = theano.function(inputs=[self.x], outputs=self.cnn.p_y_given_x)
+
+    def score(self, X, y):
+        """Returns the mean accuracy on the given test data and labels.
+
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+            Training set.
+
+        y : array-like, shape = [n_samples]
+            Labels for X.
+
+        Returns
+        -------
+        z : float
+
+        """
+        return numpy.mean(self.predict(X) == y)
+
+    def fit(self, x_train, y_train, x_test=None, y_test=None,
+            validation_frequency=2, n_epochs=None):
+        """ Fit model
+
+        Pass in X_test, Y_test to compute test error and report during
+        training.
+
+        x_train : ndarray (T x n_in)
+        y_train : ndarray (T x n_out)
+
+        validation_frequency : int
+            in terms of number of sequences (or number of weight updates)
+        n_epochs : None (used to override self.n_epochs from init.
+        """
+        #prepare the CNN
+        self.n_out = len(numpy.unique(y_train))
+        self.ready()
+        #input
+        #x = T.matrix('x')
+        #output (a label)
+        #y = T.ivector('y')
+        self.compute_error = theano.function(inputs=[self.x, self.y],
+                                             outputs=self.cnn.loss(self.y))
+
+        cost = self.cnn.loss(self.y)
+            #+ self.L1_reg * self.cnn.L1\
+            #+ self.L2_reg * self.cnn.L2_sqr
+
+        # create a list of all model parameters to be fit by gradient descent
+        self.params = self.cnn.params
+
+        # create a list of gradients for all model parameters
+        self.grads = T.grad(cost, self.params)
+
+        # train_model is a function that updates the model parameters by
+        # SGD Since this model has many parameters, it would be tedious to
+        # manually create an update rule for each model parameter. We thus
+        # create the updates dictionary by automatically looping over all
+        # (params[i],grads[i]) pairs.
+        self.updates = {}
+        for param_i, grad_i in zip(self.params, self.grads):
+            self.updates[param_i] = param_i - self.learning_rate * grad_i
+
+        self.train_model = theano.function([self.x, self.y], cost, updates=self.updates)
+
+        if x_test is not None:
+            assert(x_test is not None)
+            interactive = True
+        else:
+            interactive = False
+
+        # early-stopping parameters
+        patience = 300  # look as this many examples regardless
+        patience_increase = 2  # wait this much longer when a new best is
+                               # found
+        improvement_threshold = 0.995  # a relative improvement of this much is
+                                       # considered significant
+        validation_frequency = min(x_train.shape[0], patience / 2)
+                                  # go through this many
+                                  # minibatche before checking the network
+                                  # on the validation set; in this case we
+                                  # check every epoch
+        best_test_loss = numpy.inf
+        best_iter = 0
+        epoch = 0
+        done_looping = False
+
+        if n_epochs is None:
+            n_epochs = self.n_epochs
+
+        n_train_samples = x_train.shape[0]
+        if interactive:
+            n_test_samples = x_test.shape[0]
+
+        y_train = y_train.reshape(y_train.shape[0], 1)
+        print y_train
+        while (epoch < n_epochs) and (not done_looping):
+            epoch += 1
+            for idx in xrange(n_train_samples):
+
+                iter = epoch * n_train_samples + idx
+
+                x_current_input = x_train[idx].reshape(1, 1, x_train[idx].shape[0],
+                                                       x_train[idx].shape[1])
+                cost_ij = self.train_model(x_current_input, y_train[idx])
+
+                if iter % validation_frequency == 0:
+                    # compute loss on training set
+                    train_losses = [self.compute_error(x_train[i].reshape(1, 1, x_train[idx].shape[0],
+                                                       x_train[idx].shape[1]), y_train[i])
+                                    for i in xrange(n_train_samples)]
+                    this_train_loss = numpy.mean(train_losses)
+                    if interactive:
+                        test_losses = [self.compute_error(x_test[i], y_test[i])
+                                       for i in xrange(n_test_samples)]
+                        this_test_loss = numpy.mean(test_losses)
+                        note = 'epoch %i, seq %i/%i, tr loss %f '\
+                        'te loss %f lr: %f' % \
+                        (epoch, idx + 1, n_train_samples,
+                         this_train_loss, this_test_loss, self.learning_rate)
+                        print note
+
+                        if this_test_loss < best_test_loss:
+                            #improve patience if loss improvement is good enough
+                            if this_test_loss < best_test_loss *  \
+                                    improvement_threshold:
+                                patience = max(patience, iter * patience_increase)
+
+                            # save best validation score and iteration number
+                            best_test_loss = this_test_loss
+                            best_iter = iter
+                    else:
+                        print "epoch %d, review %d: this train losses: %f"\
+                              % (epoch, idx, this_train_loss)
+
+                if patience <= iter:
+                    done_looping = True
+                    break
+
+    def predict(self, data):
+        if isinstance(data, list):
+            data = numpy.array(data)
+        if data.ndim == 1:
+            data = numpy.array([data])
+        return [self.predict_wrap(data[i]) for i in xrange(data.shape[0])]
+
+    def predict_proba(self, data):
+        if isinstance(data, list):
+            data = numpy.array(data)
+        if data.ndim == 1:
+            data = numpy.array([data])
+        return [self.predict_proba_wrap(data[i]) for i in xrange(data.shape[0])]
+
+    def shared_dataset(self, data_xy):
+        """ Load the dataset into shared variables """
+
+        data_x, data_y = data_xy
+        #shared_x = theano.shared(numpy.asarray(data_x, dtype=theano.config.floatX))
+        shared_x = theano.shared(data_x)
+        #shared_y = theano.shared(numpy.asarray(data_y, dtype=theano.config.floatX))
+        shared_y = theano.shared(data_y)
+        # TODO:
+        if self.output_type in ('binary', 'softmax'):
+            return shared_x, T.cast(shared_y, 'int32')
+        else:
+            return shared_x, shared_y
+
+    def __getstate__(self):
+        """ Return state sequence."""
+
+        #check if we're using ubc_AI.classifier wrapper,
+        #adding it's params to the state
+        if hasattr(self, 'orig_class'):
+            superparams = self.get_params()
+            #now switch to orig. class (MetaCNN)
+            oc = self.orig_class
+            cc = self.__class__
+            self.__class__ = oc
+            params = self.get_params()
+            for k, v in superparams.iteritems():
+                params[k] = v
+            self.__class__ = cc
+        else:
+            params = self.get_params()  #sklearn.BaseEstimator
+        if hasattr(self, 'cnn'):
+            weights = [p.get_value() for p in self.cnn.params]
+        else:
+            weights = []
+        state = (params, weights)
+        return state
+
+    def _set_weights(self, weights):
+        """ Set fittable parameters from weights sequence.
+
+        Parameters must be in the order defined by self.params:
+            W, W_in, W_out, h0, bh, by
+        """
+        i = iter(weights)
+        if hasattr(self, 'cnn'):
+            for param in self.cnn.params:
+                param.set_value(i.next())
+
+    def __setstate__(self, state):
+        """ Set parameters from state sequence.
+
+        Parameters must be in the order defined by self.params:
+            W, W_in, W_out, h0, bh, by
+        """
+        params, weights = state
+        # we may have several classes or superclasses
+        for k in ['n_comp', 'use_pca', 'feature']:
+            if k in params:
+                self.set_params(**{k: params[k]})
+                params.pop(k)
+
+        # now switch to MetaCNN if necessary
+        if hasattr(self, 'orig_class'):
+            cc = self.__class__
+            oc = self.orig_class
+            self.__class__ = oc
+            self.set_params(**params)
+            self.ready()
+            if len(weights) > 0:
+                self._set_weights(weights)
+            self.__class__ = cc
+        else:
+            self.set_params(**params)
+            self.ready()
+            self._set_weights(weights)
+
+    def load(self, path):
+        """ Load model parameters from path. """
+        with open(path, 'rb') as f:
+            state = pickle.load(f)
+        self.__setstate__(state)
+
+    def save_state(self, path):
+        with open(path, 'w') as f:
+            pickle.dump(self.__getstate__(), f)
