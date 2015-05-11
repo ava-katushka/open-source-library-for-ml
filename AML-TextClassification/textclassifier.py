@@ -106,5 +106,11 @@ class TextClassifier:
         print "recall: ", metrics.recall_score(Y, predicted, average = 'micro')
         print "f1: ", metrics.f1_score(Y, predicted, average = 'micro')
 
-
+    def get_params(self, deep=True):
+            return {"base_classifiers": self.base_classifiers,
+                "best_classifier": self.best_classifier,
+                "count_vect": self.count_vect,
+                "tfidf_transformer": self.tfidf_transformer,
+                "is_multilabel": self.is_multilabel,
+                "with_titles": self.with_titles}
 
