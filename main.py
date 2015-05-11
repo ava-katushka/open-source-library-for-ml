@@ -2,7 +2,9 @@
 from __future__ import unicode_literals
 import json
 from nltk import PorterStemmer
-
+import os
+import sys
+import argparse
 #get wiki types
 
 '''
@@ -13,25 +15,23 @@ from nltk import PorterStemmer
     "C:\\Users\\Toshik\\AML\\test\\res.json" -Путь к файлу с ответом
 '''
 
-pathCommon = "C:\\Users\\Toshik\\AML\\NewWikiEntities"
-pathTypes = "C:\\Users\\Toshik\\AML\\Entities.txt"
+parser = argparse.ArgumentParser()
+parser.add_argument('--pathTypes', default = os.getcwd() + 'Entities.txt')
+parser.add_argument('--pathWikiEntities', default = os.getcwd() + 'NewWikiEntities')
+parser.add_argument('--pathArticle', default = os.getcwd() + 'article')
+parser.add_argument('--pathLinks', default = os.getcwd() + 'links')
+parser.add_argument('--pathOutput', default = os.getcwd() + 'result.json')
+paths = parser.parse_args(sys.argv[1:])
 
-dataTypes = open(pathTypes, 'r')
-
+dataTypes = open(paths.pathTypes, 'r')
 dataTypesText = dataTypes.read().split('\n')
 
 types = []
 for typeStr in dataTypesText:
-    type1 = open(pathCommon + "\\Wiki" + typeStr + ".txt", 'r')
+    type1 = open(paths.pathWikiEntities + "\\Wiki" + typeStr + ".txt", 'r')
     types.append(set(type1.read().decode('utf-8').split('\n')))
 
-
-pth = "C:\\Users\\Toshik\\AML\\test"
-path = pth + "\\article"
-pathout = pth + "\\res.json"
-
-f = open(pth + "\\links", 'r')
-
+f = open(paths.pathLinks, 'r')
 
 wikiPair = f.read().decode('utf-8').split('\n')
 
@@ -55,7 +55,7 @@ for ent in wikiPair:
 #0 - Person, 1 - Organization, 2 - PopulatedPlace
 
 #lemmatizer
-data = open(path, "r")
+data = open(paths.pathArticle, "r")
 text1 = data.read().decode('utf-8')
 
 links1 = []
@@ -80,7 +80,7 @@ for word in text1:
         if len(word) == 0:
             break
     text.append(word)
-    for i in range(len(text2)-1, -1,-1):
+    for i in range(len(text2)-1, -1, -1):
         text.append(text2[i])
 
 out = ''
@@ -164,7 +164,7 @@ if fl == 0:
 
     typ = dataTypesText[0]
     j = 0
-    outfile = open(pathout, "w")
+    outfile = open(paths.pathOutput, "w")
     outfile.write('[')
     for ite in range(len(text)):
         word = text[ite]
