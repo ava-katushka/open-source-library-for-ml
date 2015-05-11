@@ -49,7 +49,6 @@ sgdc = SGDClassifier(alpha=0.0001, class_weight=None, epsilon=0.1,
 
 textClassifier = TextClassifier(multilabel = True, with_titles = True)
 q = textClassifier.fit(X_train, Y_train, rp.get_corpus("train", "topics", "title"))
-print np.mean(cross_val_score(textClassifier, X_train, Y_train))
 
 predicted = textClassifier.predict(X_test, rp.get_corpus("test", "topics", "title"))
 
