@@ -1,8 +1,75 @@
 import theano
-import numpy
+import numpy as np
 import theano.tensor as T
 from theano.tensor.signal import downsample
 from theano.tensor.nnet import conv
+
+
+class LeNetConvPoolLayer(object):
+    """Pool Layer of a convolutional network """
+
+    def __init__(self, rng, input, filter_shape, image_shape, poolsize=(2, 2)):
+        """
+        Allocate a LeNetConvPoolLayer with shared variable internal parameters.
+
+        :type rng: np.random.RandomState
+        :param rng: a random number generator used to initialize weights
+
+        :type input: theano.tensor.dtensor4
+        :param input: symbolic image tensor, of shape image_shape
+
+        :type filter_shape: tuple or list of length 4
+        :param filter_shape: (number of filters, num input feature maps,
+                              filter height,filter width)
+
+        :type image_shape: tuple or list of length 4
+        :param image_shape: (batch size, num input feature maps,
+                             image height, image width)
+
+        :type poolsize: tuple or list of length 2
+        :param poolsize: the downsampling (pooling) factor (#rows,#cols)
+
+        """
+
+        assert image_shape[1] == filter_shape[1]
+        self.input = input
+
+        # there are "num input feature maps * filter height * filter width"
+        # inputs to each hidden unit
+        fan_in = np.prod(filter_shape[1:])
+        # each unit in the lower layer receives a gradient from:
+        # "num output feature maps * filter height * filter width" /
+        #   pooling size
+        fan_out = (filter_shape[0] * np.prod(filter_shape[2:]) /
+                   np.prod(poolsize))
+        # initialize weights with random weights
+        W_bound = np.sqrt(6. / (fan_in + fan_out))
+        self.W = theano.shared(np.asarray(
+            rng.uniform(low=-W_bound, high=W_bound, size=filter_shape),
+            dtype=theano.config.floatX),
+                               borrow=True)
+
+        # the bias is a 1D tensor -- one bias per output feature map
+        b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
+        self.b = theano.shared(value=b_values, borrow=True)
+
+        # convolve input feature maps with filters
+        conv_out = conv.conv2d(input=input, filters=self.W,
+                filter_shape=filter_shape, image_shape=image_shape)
+
+        # downsample each feature map individually, using maxpooling
+        pooled_out = downsample.max_pool_2d(input=conv_out,
+                                            ds=poolsize, ignore_border=True)
+
+        # add the bias term. Since the bias is a vector (1D array), we first
+        # reshape it to a tensor of shape (1,n_filters,1,1). Each bias will
+        # thus be broadcasted across mini-batches and feature map
+        # width & height
+        self.output = T.tanh(pooled_out + self.b.dimshuffle('x', 0, 'x', 'x'))
+
+        # store parameters of this layer
+        self.params = [self.W, self.b]
+
 
 class SoftmaxLayer(object):
     """Multi-class Logistic Regression Class
@@ -24,12 +91,12 @@ class SoftmaxLayer(object):
         :param n_out: number of output units, the dimension of the space in which the labels lie
 
         """
-        self.W = theano.shared(value = numpy.zeros((n_in, n_out), dtype=theano.config.floatX),
+        self.W = theano.shared(value = np.zeros((n_in, n_out), dtype=theano.config.floatX),
             name='W',
             borrow=True
         )
         # initialize the baises b as a vector of n_out 0s
-        self.b = theano.shared(value=numpy.zeros((n_out,), dtype=theano.config.floatX),
+        self.b = theano.shared(value=np.zeros((n_out,), dtype=theano.config.floatX),
             name='b',
             borrow=True
         )
@@ -49,6 +116,16 @@ class SoftmaxLayer(object):
 
         # parameters of the model
         self.params = [self.W, self.b]
+
+        # L1 norm ; one regularization option is to enforce L1 norm to
+        # be small
+        self.L1 = 0
+        self.L1 += abs(self.W.sum())
+
+        # square of L2 norm ; one regularization option is to enforce
+        # square of L2 norm to be small
+        self.L2_sqr = 0
+        self.L2_sqr += (self.W ** 2).sum()
 
     def negative_log_likelihood(self, y):
         """Return the mean of the negative log-likelihood of the prediction
@@ -96,13 +173,13 @@ class SoftmaxLayer(object):
             raise NotImplementedError()
 
 class FullyConnectedLayer(object):
-    def __init__(self, rng, input, n_in, n_out, W=None, b=None, activation=None):
+    def __init__(self, rng, input, n_in, n_out, W=None, b=None, activation=T.tanh):
         """
         Typical hidden layer of a MLP: units are fully-connected and have
         sigmoidal activation function. Weight matrix W is of shape (n_in,n_out)
         and the bias vector b is of shape (n_out,).
 
-        :type rng: numpy.random.RandomState
+        :type rng: np.random.RandomState
         :param rng: a random number generator used to initialize weights
 
         :type input: theano.tensor.dmatrix
@@ -124,10 +201,10 @@ class FullyConnectedLayer(object):
         # from sqrt(-6./(n_in+n_hidden)) and sqrt(6./(n_in+n_hidden))
         # for tanh activation function
         if W is None:
-            W_values = numpy.asarray(
+            W_values = np.asarray(
                 rng.uniform(
-                    low=-numpy.sqrt(6. / (n_in + n_out)),
-                    high=numpy.sqrt(6. / (n_in + n_out)),
+                    low=-np.sqrt(6. / (n_in + n_out)),
+                    high=np.sqrt(6. / (n_in + n_out)),
                     size=(n_in, n_out)
                 ),
                 dtype=theano.config.floatX
@@ -138,7 +215,7 @@ class FullyConnectedLayer(object):
             W = theano.shared(value=W_values, name='W', borrow=True)
 
         if b is None:
-            b_values = numpy.zeros((n_out,), dtype=theano.config.floatX)
+            b_values = np.zeros((n_out,), dtype=theano.config.floatX)
             b = theano.shared(value=b_values, name='b', borrow=True)
 
         self.W = W
@@ -159,7 +236,7 @@ class ConvLayer(object):
         """
         Allocate a ConvLayer with shared variable internal parameters.
 
-        :type rng: numpy.random.RandomState
+        :type rng: np.random.RandomState
         :param rng: a random number generator used to initialize weights
 
         :type input: theano.tensor.dtensor4
@@ -180,14 +257,14 @@ class ConvLayer(object):
 
         # there are "num input feature maps * filter height * filter width"
         # inputs to each hidden unit
-        fan_in = numpy.prod(filter_shape[1:])
+        fan_in = np.prod(filter_shape[1:])
         # each unit in the lower layer receives a gradient from:
         # "num output feature maps * filter height * filter width"
-        fan_out = (filter_shape[0] * numpy.prod(filter_shape[2:]))
+        fan_out = (filter_shape[0] * np.prod(filter_shape[2:]))
         # initialize weights with random weights
-        W_bound = numpy.sqrt(6. / (fan_in + fan_out))
+        W_bound = np.sqrt(6. / (fan_in + fan_out))
         self.W = theano.shared(
-            numpy.asarray(
+            np.asarray(
                 rng.uniform(low=-W_bound, high=W_bound, size=filter_shape),
                 dtype=theano.config.floatX
             ),
@@ -195,8 +272,9 @@ class ConvLayer(object):
         )
 
         # the bias is a 1D tensor -- one bias per output feature map
-        b_values = numpy.zeros((filter_shape[0],), dtype=theano.config.floatX)
+        b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
         self.b = theano.shared(value=b_values, borrow=True)
+
 
         # convolve input feature maps with filters
         conv_out = conv.conv2d(
@@ -236,7 +314,8 @@ class MaxPoolingLayer(object):
         self.output = downsample.max_pool_2d(
             input=input,
             ds=poolsize,
-            ignore_border=True
+            ignore_border=True,
+            st=(2,2)
         )
 
 class DropoutHiddenLayer(FullyConnectedLayer):
