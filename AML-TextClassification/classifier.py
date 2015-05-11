@@ -7,7 +7,7 @@ from sklearn.svm import LinearSVC
 from sklearn import metrics
 from  sklearn.multiclass import OneVsRestClassifier
 from sklearn.feature_selection import VarianceThreshold
-from sklearn.cross_validation import cross_val_score
+from sklearn import cross_validation.cross_val_score
 
 import reuters
 from textclassifier import TextClassifier
