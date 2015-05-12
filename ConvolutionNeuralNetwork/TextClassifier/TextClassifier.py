@@ -19,6 +19,7 @@ import Layers
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
+theano.config.exception_verbosity='high'
 
 class ConvLayerForSentences(object):
     """Свёрточный слой для классификации предложений"""
@@ -89,8 +90,8 @@ class MaxOverTimePoolingLayer(object):
         Записывет максимальные значения по оси, отвечающей результату одного фильтра
         Один максимум для одного фильтра - для простейшего варианта - ширина фильтра =
         размерности слова
-        :type pooling_input: символичный тензор размера:
-                            (количество входных карт признаков(число фильтров),
+        :type pooling_input: символичный тензор размера 2:
+                            (количество входных карт признаков(число фильтров) *
                             высота - итоговое количество окон предложения для одного фильтра)
         :param pooling_input: вход для пулинга
         """
@@ -149,17 +150,19 @@ class CNNForSentences(object):
         self.layer0 = ConvLayerForSentences(rng, input_data=input, filter_shape=(n_filters, 1,
                                                                                  window,
                                                                                  word_dimension))
-
-        self.layer1 = MaxOverTimePoolingLayer(self.layer0.output, n_filters)
-        layer2_input = self.layer1.output.flatten(2)
+        layer1_input = self.layer0.output.dimshuffle(1, 2, 0, 3)
+        layer1_input = layer1_input.flatten(2)
+        # TODO: check it!
+        self.layer1 = MaxOverTimePoolingLayer(layer1_input, n_filters)
+        layer2_input = self.layer1.output #.flatten(1)
         # После этого слоя осталось ровно n_filters элементов
-        self.layer2 = Layers.FullyConnectedLayer(rng, input=layer2_input,
+        self.layer2 = Layers.FullyConnectedLayer(rng, layer2_input,
                                                  n_in=n_filters,
                                                  n_out=n_hidden, activation=activation)
 
         # classify the values of the fully-connected sigmoidal layer
         self.layer3 = Layers.SoftmaxLayer(input=self.layer2.output,
-                                          n_in=n_hidden, n_out=n_out)
+                                   n_in=n_hidden, n_out=n_out)
 
         # CNN regularization
         self.L1 = self.layer3.L1
@@ -203,7 +206,7 @@ class CNNForSentences(object):
         # LP[n-1,y[n-1]]] and T.mean(LP[T.arange(y.shape[0]),y]) is
         # the mean (across minibatch examples) of the elements in v,
         # i.e., the mean log-likelihood across the minibatch.
-        return -T.mean(T.log(self.p_y_given_x)[T.arange(y.shape[0]), y])
+        return -T.mean(T.log(self.p_y_given_x)[0, y[0]])
 
     def errors(self, y):
         """Return a float representing the number of errors in the sequence
@@ -229,37 +232,11 @@ class CNNForSentences(object):
                 raise NotImplementedError()
 
 
-def text_to_wordlist(text, remove_stopwords=False):
-    text = re.sub("[^a-zA-Z]"," ", text)
-    words = text.lower().split()
-    # Optionally remove stop words (false by default)
-    if remove_stopwords:
-        stops = set(stopwords.words("english"))
-        words = [w for w in words if not w in stops]
-    # 5. Return a list of words
-    return words
-
-
-def make_feature_matrix(words, model, num_features):
-    review_feature_vecs = numpy.zeros((len(words), num_features), dtype="float32")
-    counter = 0.
-    for word in words:
-        review_feature_vecs[counter] = model[word]
-        counter += 1
-    return review_feature_vecs
-
-num_features = 300    # Word vector dimensionality
-min_word_count = 40   # Minimum word count
-num_workers = 4       # Number of threads to run in parallel
-context = 10          # Context window size
-downsampling = 1e-3
-
-
 class TextClassifier(BaseEstimator):
 
     def __init__(self, learning_rate=0.1, n_epochs=3, activation='tanh', window=5,
-                 n_hidden=10, n_filters=30, pooling_type='max_overtime',
-                 output_type='softmax', L1_reg=0.00, L2_reg=0.00, n_out=2, word_dimension=100):
+                 n_hidden=10, n_filters=25, pooling_type='max_overtime',
+                 output_type='binary', L1_reg=0.00, L2_reg=0.00, n_out=2, word_dimension=100):
         self.learning_rate = learning_rate
         self.n_hidden = n_hidden
         self.n_epochs = int(n_epochs)
@@ -275,16 +252,12 @@ class TextClassifier(BaseEstimator):
 
     def ready(self):
         """
-        this routine is called from "fit" since we determine the
-        image size (assumed square) and output labels from the training data.
-
+        this function is called from "fit"
         """
         #input
-        self.x = T.matrix('x')
+        self.x = T.tensor4('x')
         #output (a label)
         self.y = T.ivector('y')
-
-        self.x = self.x.dimshuffle('x', 'x', 0, 1)
 
         if self.activation == 'tanh':
             activation = T.tanh
@@ -303,7 +276,7 @@ class TextClassifier(BaseEstimator):
                        output_type=self.output_type, window=self.window,
                        word_dimension=self.word_dimension)
 
-        #self.cnn.predict expects batch_size number of inputs.
+        #self.cnn.predict expects one input.
         #we wrap those functions and pad as necessary in 'def predict' and 'def predict_proba'
         self.predict_wrap = theano.function(inputs=[self.x], outputs=self.cnn.y_pred)
         self.predict_proba_wrap = theano.function(inputs=[self.x], outputs=self.cnn.p_y_given_x)
@@ -357,19 +330,20 @@ class TextClassifier(BaseEstimator):
         # create a list of all model parameters to be fit by gradient descent
         self.params = self.cnn.params
 
-        # create a list of gradients for all model parameters
-        self.grads = T.grad(cost, self.params)
 
-        # train_model is a function that updates the model parameters by
-        # SGD Since this model has many parameters, it would be tedious to
-        # manually create an update rule for each model parameter. We thus
-        # create the updates dictionary by automatically looping over all
-        # (params[i],grads[i]) pairs.
-        self.updates = {}
-        for param_i, grad_i in zip(self.params, self.grads):
-            self.updates[param_i] = param_i - self.learning_rate * grad_i
+        # Создаём список градиентов для всех параметров модели
+        grads = T.grad(cost, self.params)
 
-        self.train_model = theano.function([self.x, self.y], cost, updates=self.updates)
+        # train_model это функция, которая обновляет параметры модели с помощью SGD
+        # Так как модель имеет много парамметров, было бы утомтельным вручную создавать правила обновления
+        # для каждой модели, поэтому мы создали updates list для автоматического прохождения по парам
+        # (params[i], grads[i])
+        updates = [
+            (param_i, param_i - self.learning_rate * grad_i)
+            for param_i, grad_i in zip(self.params, grads)
+        ]
+
+        self.train_model = theano.function([self.x, self.y], cost, updates=updates)
 
         if x_test is not None:
             assert(x_test is not None)
