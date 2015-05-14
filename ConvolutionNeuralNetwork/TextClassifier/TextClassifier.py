@@ -236,7 +236,7 @@ class TextClassifier(BaseEstimator):
 
     def __init__(self, learning_rate=0.1, n_epochs=3, activation='tanh', window=5,
                  n_hidden=10, n_filters=25, pooling_type='max_overtime',
-                 output_type='binary', L1_reg=0.00, L2_reg=0.00, n_out=2, word_dimension=100):
+                 output_type='softmax', L1_reg=0.00, L2_reg=0.00, n_out=2, word_dimension=100):
         self.learning_rate = learning_rate
         self.n_hidden = n_hidden
         self.n_epochs = int(n_epochs)
@@ -352,7 +352,7 @@ class TextClassifier(BaseEstimator):
             interactive = False
 
         # early-stopping parameters
-        patience = 300  # look as this many examples regardless
+        patience = 10000  # look as this many examples regardless
         patience_increase = 2  # wait this much longer when a new best is
                                # found
         improvement_threshold = 0.995  # a relative improvement of this much is
@@ -375,7 +375,6 @@ class TextClassifier(BaseEstimator):
             n_test_samples = x_test.shape[0]
 
         y_train = y_train.reshape(y_train.shape[0], 1)
-        print y_train
         while (epoch < n_epochs) and (not done_looping):
             epoch += 1
             for idx in xrange(n_train_samples):
@@ -388,8 +387,8 @@ class TextClassifier(BaseEstimator):
 
                 if iter % validation_frequency == 0:
                     # compute loss on training set
-                    train_losses = [self.compute_error(x_train[i].reshape(1, 1, x_train[idx].shape[0],
-                                                       x_train[idx].shape[1]), y_train[i])
+                    train_losses = [self.compute_error(x_train[i].reshape(1, 1, x_train[i].shape[0],
+                                                       x_train[i].shape[1]), y_train[i])
                                     for i in xrange(n_train_samples)]
                     this_train_loss = numpy.mean(train_losses)
                     if interactive:
@@ -414,24 +413,23 @@ class TextClassifier(BaseEstimator):
                     else:
                         print "epoch %d, review %d: this train losses: %f"\
                               % (epoch, idx, this_train_loss)
-
-                if patience <= iter:
-                    done_looping = True
-                    break
+                # TODO:
+                #if patience <= iter:
+                #    print "patience = %d" % patience
+                #    done_looping = True
+                #    break
 
     def predict(self, data):
         if isinstance(data, list):
             data = numpy.array(data)
-        if data.ndim == 1:
-            data = numpy.array([data])
-        return [self.predict_wrap(data[i]) for i in xrange(data.shape[0])]
+        return [self.predict_wrap(data[i].reshape(1, 1, data[i].shape[0],
+                                  data[i].shape[1])) for i in xrange(data.shape[0])]
 
     def predict_proba(self, data):
         if isinstance(data, list):
             data = numpy.array(data)
-        if data.ndim == 1:
-            data = numpy.array([data])
-        return [self.predict_proba_wrap(data[i]) for i in xrange(data.shape[0])]
+        return [self.predict_proba_wrap(data[i].reshape(1, 1, data[i].shape[0],
+                                        data[i].shape[1])) for i in xrange(data.shape[0])]
 
     def shared_dataset(self, data_xy):
         """ Load the dataset into shared variables """
