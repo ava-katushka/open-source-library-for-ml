@@ -13,13 +13,14 @@ import pandas as pd
 from gensim.models import Word2Vec
 
 import sys
-sys.path.insert(0, '../ImageClassifier_v2')
+sys.path.insert(0, '../../ImageClassifier_v2')
 import Layers
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-theano.config.exception_verbosity='high'
+theano.config.exception_verbosity = 'high'
+
 
 class ConvLayerForSentences(object):
     """Свёрточный слой для классификации предложений"""
@@ -232,11 +233,63 @@ class CNNForSentences(object):
                 raise NotImplementedError()
 
 
+def text_to_word_list(text, remove_stopwords=False):
+    text = re.sub("[^a-zA-Z]", " ", text)
+    words = text.lower().split()
+    # Optionally remove stop words (false by default)
+    if remove_stopwords:
+        stops = set(stopwords.words("english"))
+        words = [w for w in words if not w in stops]
+    # 5. Return a list of words
+    return words
+
+
+def make_feature_matrix(words, model):
+    # feature_matrix = np.zeros((len(words), num_features), dtype="float32")
+    feature_matrix = []
+    # counter = 0.
+    for word in words:
+        if word in model.vocab:
+            feature_matrix.append(list(model[word]))
+            # feature_matrix[counter] = model[word]
+            # counter += 1
+        # else:
+        #    print 'word', word, 'is not in a model\n'
+    feature_matrix = numpy.array(feature_matrix)
+    return feature_matrix
+
+
+def text_to_matrix(text, model):
+    words = text_to_word_list(text, remove_stopwords=False)
+    matrix = make_feature_matrix(words, model)
+    return matrix
+
+
 class TextClassifier(BaseEstimator):
 
-    def __init__(self, learning_rate=0.1, n_epochs=3, activation='tanh', window=5,
+    def __init__(self, learning_rate=0.001, n_epochs=3, activation='tanh', window=5,
                  n_hidden=10, n_filters=25, pooling_type='max_overtime',
-                 output_type='softmax', L1_reg=0.00, L2_reg=0.00, n_out=2, word_dimension=100):
+                 output_type='softmax', L1_reg=0.00, L2_reg=0.00, n_out=2, word_dimension=100,
+                 seed=0, model_path=None):
+        """
+        :param learning_rate: темп обучения
+        :param n_epochs: количество эпох обучения
+        :type activation: string, варианты: 'tanh', 'sigmoid', 'relu', 'cappedrelu'
+        :param activation: вид активационной функции
+        :param window: размер "окна" для обработки близких друг к другу слов
+        :param n_hidden: число нейронов в скрытом слое
+        :param n_filters: число фильтров
+        :param pooling_type: тип пулинга, пока что доступен только max_overtime пулинг
+        :param output_type:
+        :param L1_reg:
+        :param L2_reg:
+        :param n_out: количество классов для классификации
+        :param word_dimension: размерность слов
+        :param seed: начальное значение для генератора случайных чисел
+        :type model_path: string / None
+        :param model_path: путь к сохранённой модели word2vec, если путь не указан, используется
+                        стандартная предобученная модель
+        """
         self.learning_rate = learning_rate
         self.n_hidden = n_hidden
         self.n_epochs = int(n_epochs)
@@ -249,6 +302,22 @@ class TextClassifier(BaseEstimator):
         self.pooling_type = pooling_type
         self.window = window
         self.word_dimension = word_dimension
+        self.seed = seed
+        self.is_ready = False
+        self.model_path = model_path
+        # TODO:
+        if model_path is None:
+            if word_dimension == 100:
+                self.model_path = "100features_40minwords_10context"
+            elif word_dimension == 400:
+                self.model_path = "word2vec.model"
+            else:
+                print "There is no prepared model with dimension = %d" % word_dimension
+                return
+        print "Model word2vec is loading from %s." % self.model_path
+        self.model = Word2Vec.load(self.model_path)
+        print "Model word2vec was loaded."
+        assert self.model.layer1_size == self.word_dimension
 
     def ready(self):
         """
@@ -274,14 +343,15 @@ class TextClassifier(BaseEstimator):
                        n_out=self.n_out, activation=activation,
                        n_hidden=self.n_hidden, n_filters=self.n_filters,
                        output_type=self.output_type, window=self.window,
-                       word_dimension=self.word_dimension)
+                       word_dimension=self.word_dimension, seed=self.seed)
 
         #self.cnn.predict expects one input.
         #we wrap those functions and pad as necessary in 'def predict' and 'def predict_proba'
         self.predict_wrap = theano.function(inputs=[self.x], outputs=self.cnn.y_pred)
         self.predict_proba_wrap = theano.function(inputs=[self.x], outputs=self.cnn.p_y_given_x)
+        self.is_ready = True
 
-    def score(self, X, y):
+    def score(self, x_data, y):
         """Returns the mean accuracy on the given test data and labels.
 
         Parameters
@@ -297,7 +367,7 @@ class TextClassifier(BaseEstimator):
         z : float
 
         """
-        return numpy.mean(self.predict(X) == y)
+        return numpy.mean(self.predict(x_data) == y)
 
     def fit(self, x_train, y_train, x_test=None, y_test=None,
             validation_frequency=2, n_epochs=None):
@@ -305,17 +375,31 @@ class TextClassifier(BaseEstimator):
 
         Pass in X_test, Y_test to compute test error and report during
         training.
+        :type x_train: list(string) или numpy.array(string)
+        :param x_train: входные данные - список из текстов
+        :type y_train: list(int)
+        :param y_train: целевые значения для каждого текста
 
-        x_train : ndarray (T x n_in)
-        y_train : ndarray (T x n_out)
-
-        validation_frequency : int
-            in terms of number of sequences (or number of weight updates)
-        n_epochs : None (used to override self.n_epochs from init.
+        :type validation_frequency: int
+        :param validation_frequency: in terms of number of sequences (or number of weight updates)
+        :type n_epochs: int/None
+        :param n_epochs: used to override self.n_epochs from init.
         """
-        #prepare the CNN
+        print "Feature selection..."
+        x_train_matrix = self.__feature_selection(x_train)
+        if x_test is not None:
+            assert(y_test is not None)
+            interactive = True
+            x_test_matrix = self.__feature_selection(x_test)
+        else:
+            interactive = False
+        print "Feature selection finished"
+
+
+        # подготовим CNN
         self.n_out = len(numpy.unique(y_train))
-        self.ready()
+        if not self.is_ready:
+            self.ready()
         #input
         #x = T.matrix('x')
         #output (a label)
@@ -329,7 +413,6 @@ class TextClassifier(BaseEstimator):
 
         # create a list of all model parameters to be fit by gradient descent
         self.params = self.cnn.params
-
 
         # Создаём список градиентов для всех параметров модели
         grads = T.grad(cost, self.params)
@@ -345,11 +428,6 @@ class TextClassifier(BaseEstimator):
 
         self.train_model = theano.function([self.x, self.y], cost, updates=updates)
 
-        if x_test is not None:
-            assert(x_test is not None)
-            interactive = True
-        else:
-            interactive = False
 
         # early-stopping parameters
         patience = 10000  # look as this many examples regardless
@@ -357,7 +435,8 @@ class TextClassifier(BaseEstimator):
                                # found
         improvement_threshold = 0.995  # a relative improvement of this much is
                                        # considered significant
-        validation_frequency = min(x_train.shape[0], patience / 2)
+
+        validation_frequency = min(x_train_matrix.shape[0], patience / 2)
                                   # go through this many
                                   # minibatche before checking the network
                                   # on the validation set; in this case we
@@ -370,9 +449,9 @@ class TextClassifier(BaseEstimator):
         if n_epochs is None:
             n_epochs = self.n_epochs
 
-        n_train_samples = x_train.shape[0]
+        n_train_samples = x_train_matrix.shape[0]
         if interactive:
-            n_test_samples = x_test.shape[0]
+            n_test_samples = x_test_matrix.shape[0]
 
         y_train = y_train.reshape(y_train.shape[0], 1)
         while (epoch < n_epochs) and (not done_looping):
@@ -381,18 +460,19 @@ class TextClassifier(BaseEstimator):
 
                 iter = epoch * n_train_samples + idx
 
-                x_current_input = x_train[idx].reshape(1, 1, x_train[idx].shape[0],
-                                                       x_train[idx].shape[1])
+                x_current_input = x_train_matrix[idx].reshape(1, 1, x_train_matrix[idx].shape[0],
+                                                              x_train_matrix[idx].shape[1])
                 cost_ij = self.train_model(x_current_input, y_train[idx])
 
                 if iter % validation_frequency == 0:
                     # compute loss on training set
-                    train_losses = [self.compute_error(x_train[i].reshape(1, 1, x_train[i].shape[0],
-                                                       x_train[i].shape[1]), y_train[i])
+                    train_losses = [self.compute_error(x_train_matrix[i].reshape(1, 1,
+                                                                                 x_train_matrix[i].shape[0],
+                                                       x_train_matrix[i].shape[1]), y_train[i])
                                     for i in xrange(n_train_samples)]
                     this_train_loss = numpy.mean(train_losses)
                     if interactive:
-                        test_losses = [self.compute_error(x_test[i], y_test[i])
+                        test_losses = [self.compute_error(x_test_matrix[i], y_test[i])
                                        for i in xrange(n_test_samples)]
                         this_test_loss = numpy.mean(test_losses)
                         note = 'epoch %i, seq %i/%i, tr loss %f '\
@@ -420,16 +500,25 @@ class TextClassifier(BaseEstimator):
                 #    break
 
     def predict(self, data):
-        if isinstance(data, list):
-            data = numpy.array(data)
-        return [self.predict_wrap(data[i].reshape(1, 1, data[i].shape[0],
-                                  data[i].shape[1])) for i in xrange(data.shape[0])]
+        if isinstance(data[0], str) or isinstance(data[0], unicode) :
+            matrix_data = self.__feature_selection(data)
+        else:
+            print type(data[0])
+            matrix_data = data
+        if isinstance(matrix_data, list):
+            matrix_data = numpy.array(matrix_data)
+        return [self.predict_wrap(matrix_data[i].reshape(1, 1, matrix_data[i].shape[0],
+                                  matrix_data[i].shape[1])) for i in xrange(matrix_data.shape[0])]
 
     def predict_proba(self, data):
+        if isinstance(data[0], str):
+            matrix_data = self.__feature_selection(data)
+        else:
+            matrix_data = data
         if isinstance(data, list):
-            data = numpy.array(data)
-        return [self.predict_proba_wrap(data[i].reshape(1, 1, data[i].shape[0],
-                                        data[i].shape[1])) for i in xrange(data.shape[0])]
+            matrix_data = numpy.array(matrix_data)
+        return [self.predict_proba_wrap(matrix_data[i].reshape(1, 1, matrix_data[i].shape[0],
+                                        matrix_data[i].shape[1])) for i in xrange(matrix_data.shape[0])]
 
     def shared_dataset(self, data_xy):
         """ Load the dataset into shared variables """
@@ -517,3 +606,12 @@ class TextClassifier(BaseEstimator):
     def save_state(self, path):
         with open(path, 'w') as f:
             pickle.dump(self.__getstate__(), f)
+
+    def __feature_selection(self, text_data):
+        text_data_as_matrix = []
+        for text in text_data:
+            if isinstance(text, str):
+                raise AttributeError("feature selection error: not string format")
+            text_data_as_matrix.append(text_to_matrix(text, self.model))
+        text_data_as_matrix = numpy.array(text_data_as_matrix)
+        return text_data_as_matrix
