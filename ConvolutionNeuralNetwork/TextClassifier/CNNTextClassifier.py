@@ -1,25 +1,25 @@
 # -*- coding: utf-8 -*-
-
 import numpy
 import re
 from nltk.corpus import stopwords
 from sklearn.base import BaseEstimator
 import cPickle as pickle
-from math import sqrt
 import theano
 import theano.tensor as T
 from theano.tensor.nnet import conv
-import pandas as pd
 from gensim.models import Word2Vec
 
 import sys
 sys.path.insert(0, '../../ImageClassifier_v2')
+sys.path.insert(0, '../ImageClassifier_v2')
+sys.path.insert(0, '../ConvolutionNeuralNetwork/ImageClassifier_v2')
 import Layers
+
+
+theano.config.exception_verbosity = 'high'
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
-
-theano.config.exception_verbosity = 'high'
 
 
 class ConvLayerForSentences(object):
@@ -44,23 +44,23 @@ class ConvLayerForSentences(object):
         :type sentences_shape: tuple или list длины 4
         :param sentences_shape: (количество предложений = 1(всегда), количество каналов - обычно 1,
                                  высота изображения = длина предложения,
-                                 ширина изображения = размерность ветора слова)
+                                 ширина изображения = размерность вектора слова)
 
-        :param activation: активачионная функция
+        :param activation: активационная функция
         """
         if sentences_shape is not None:
             # проверяю совпадение размерности вектора слова
             assert sentences_shape[4] == filter_shape[4]
         self.input = input_data
 
-        W_bound = int(1)
+        W_bound = 0.5
         # каждая карта входных признаков соединена с каждым фильтром,
         # поэтому и такая размерность у матрицы весов
         self.W = theano.shared(
             numpy.asarray(rng.uniform(low=-W_bound, high=W_bound,
                                       size=filter_shape),
                           dtype=theano.config.floatX
-            ),
+                          ),
             borrow=True
         )
 
@@ -163,7 +163,7 @@ class CNNForSentences(object):
 
         # classify the values of the fully-connected sigmoidal layer
         self.layer3 = Layers.SoftmaxLayer(input=self.layer2.output,
-                                   n_in=n_hidden, n_out=n_out)
+                                          n_in=n_hidden, n_out=n_out)
 
         # CNN regularization
         self.L1 = self.layer3.L1
@@ -265,7 +265,7 @@ def text_to_matrix(text, model):
     return matrix
 
 
-class TextClassifier(BaseEstimator):
+class CNNTextClassifier(BaseEstimator):
 
     def __init__(self, learning_rate=0.001, n_epochs=3, activation='tanh', window=5,
                  n_hidden=10, n_filters=25, pooling_type='max_overtime',
@@ -369,8 +369,7 @@ class TextClassifier(BaseEstimator):
         """
         return numpy.mean(self.predict(x_data) == y)
 
-    def fit(self, x_train, y_train, x_test=None, y_test=None,
-            validation_frequency=2, n_epochs=None):
+    def fit(self, x_train, y_train, x_test=None, y_test=None, n_epochs=None):
         """ Fit model
 
         Pass in X_test, Y_test to compute test error and report during
@@ -380,8 +379,6 @@ class TextClassifier(BaseEstimator):
         :type y_train: list(int)
         :param y_train: целевые значения для каждого текста
 
-        :type validation_frequency: int
-        :param validation_frequency: in terms of number of sequences (or number of weight updates)
         :type n_epochs: int/None
         :param n_epochs: used to override self.n_epochs from init.
         """
@@ -411,11 +408,9 @@ class TextClassifier(BaseEstimator):
             #+ self.L1_reg * self.cnn.L1\
             #+ self.L2_reg * self.cnn.L2_sqr
 
-        # create a list of all model parameters to be fit by gradient descent
-        self.params = self.cnn.params
 
         # Создаём список градиентов для всех параметров модели
-        grads = T.grad(cost, self.params)
+        grads = T.grad(cost, self.cnn.params)
 
         # train_model это функция, которая обновляет параметры модели с помощью SGD
         # Так как модель имеет много парамметров, было бы утомтельным вручную создавать правила обновления
@@ -423,28 +418,10 @@ class TextClassifier(BaseEstimator):
         # (params[i], grads[i])
         updates = [
             (param_i, param_i - self.learning_rate * grad_i)
-            for param_i, grad_i in zip(self.params, grads)
+            for param_i, grad_i in zip(self.cnn.params, grads)
         ]
 
         self.train_model = theano.function([self.x, self.y], cost, updates=updates)
-
-
-        # early-stopping parameters
-        patience = 10000  # look as this many examples regardless
-        patience_increase = 2  # wait this much longer when a new best is
-                               # found
-        improvement_threshold = 0.995  # a relative improvement of this much is
-                                       # considered significant
-
-        validation_frequency = min(x_train_matrix.shape[0], patience / 2)
-                                  # go through this many
-                                  # minibatche before checking the network
-                                  # on the validation set; in this case we
-                                  # check every epoch
-        best_test_loss = numpy.inf
-        best_iter = 0
-        epoch = 0
-        done_looping = False
 
         if n_epochs is None:
             n_epochs = self.n_epochs
@@ -454,53 +431,48 @@ class TextClassifier(BaseEstimator):
             n_test_samples = x_test_matrix.shape[0]
 
         y_train = y_train.reshape(y_train.shape[0], 1)
-        while (epoch < n_epochs) and (not done_looping):
+
+        print "Count score for not trained classifier INSIDE FIT METHOD..."
+        print self.score(x_train, y_train)
+
+        visualization_frequency = min(999, n_train_samples)
+        epoch = 0
+        while epoch < n_epochs:
             epoch += 1
             for idx in xrange(n_train_samples):
-
-                iter = epoch * n_train_samples + idx
 
                 x_current_input = x_train_matrix[idx].reshape(1, 1, x_train_matrix[idx].shape[0],
                                                               x_train_matrix[idx].shape[1])
                 cost_ij = self.train_model(x_current_input, y_train[idx])
 
-                if iter % validation_frequency == 0:
+                if idx % visualization_frequency == 0 and idx > 0:
                     # compute loss on training set
                     train_losses = [self.compute_error(x_train_matrix[i].reshape(1, 1,
                                                                                  x_train_matrix[i].shape[0],
                                                        x_train_matrix[i].shape[1]), y_train[i])
                                     for i in xrange(n_train_samples)]
                     this_train_loss = numpy.mean(train_losses)
+                    print self.score(x_train, y_train)
+                    print "cost_ij = ", cost_ij
+
                     if interactive:
                         test_losses = [self.compute_error(x_test_matrix[i], y_test[i])
                                        for i in xrange(n_test_samples)]
                         this_test_loss = numpy.mean(test_losses)
-                        note = 'epoch %i, seq %i/%i, tr loss %f '\
-                        'te loss %f lr: %f' % \
-                        (epoch, idx + 1, n_train_samples,
-                         this_train_loss, this_test_loss, self.learning_rate)
+                        note = 'epoch %i, seq %i/%i, tr loss %f te loss %f lr: %f' % \
+                               (epoch, idx + 1, n_train_samples, this_train_loss, this_test_loss,
+                                self.learning_rate)
                         print note
 
-                        if this_test_loss < best_test_loss:
-                            #improve patience if loss improvement is good enough
-                            if this_test_loss < best_test_loss *  \
-                                    improvement_threshold:
-                                patience = max(patience, iter * patience_increase)
-
-                            # save best validation score and iteration number
-                            best_test_loss = this_test_loss
-                            best_iter = iter
                     else:
                         print "epoch %d, review %d: this train losses: %f"\
                               % (epoch, idx, this_train_loss)
-                # TODO:
-                #if patience <= iter:
-                #    print "patience = %d" % patience
-                #    done_looping = True
-                #    break
+
+        print "Fitting was finished. Train score:"
+        print self.score(x_train, y_train)
 
     def predict(self, data):
-        if isinstance(data[0], str) or isinstance(data[0], unicode) :
+        if isinstance(data[0], str) or isinstance(data[0], unicode):
             matrix_data = self.__feature_selection(data)
         else:
             print type(data[0])
@@ -568,6 +540,8 @@ class TextClassifier(BaseEstimator):
         if hasattr(self, 'cnn'):
             for param in self.cnn.params:
                 param.set_value(i.next())
+        else:
+            print "Error in function _set_weights: there is no cnn"
 
     def __setstate__(self, state):
         """ Set parameters from state sequence.
@@ -591,6 +565,8 @@ class TextClassifier(BaseEstimator):
             self.ready()
             if len(weights) > 0:
                 self._set_weights(weights)
+            else:
+               print "Error in function __setstate__: there is no weights"
             self.__class__ = cc
         else:
             self.set_params(**params)
@@ -610,8 +586,15 @@ class TextClassifier(BaseEstimator):
     def __feature_selection(self, text_data):
         text_data_as_matrix = []
         for text in text_data:
-            if isinstance(text, str):
+            if not isinstance(text, str) and not isinstance(text, numpy.unicode):
+                print type(text)
                 raise AttributeError("feature selection error: not string format")
             text_data_as_matrix.append(text_to_matrix(text, self.model))
         text_data_as_matrix = numpy.array(text_data_as_matrix)
         return text_data_as_matrix
+
+    def get_cnn_params(self):
+        if hasattr(self, 'cnn'):
+            return self.cnn.params
+        else:
+            print "Error in function _set_weights: there is no cnn"
