@@ -4,9 +4,10 @@ __author__ = 'irina'
 import re
 import logging
 import time
+import datetime
 
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',\
-    level=logging.INFO)
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
+                    level=logging.INFO)
 
 from bs4 import BeautifulSoup
 
@@ -15,12 +16,9 @@ import pandas as pd
 
 from gensim.models import Word2Vec
 
-import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-
 import sys
-sys.path.insert(0, '.')
-import TextClassifier
+sys.path.insert(0, '..')
+import CNNTextClassifier
 
 import nltk
 # nltk.download()  # Download text data sets, including stop words
@@ -28,10 +26,10 @@ import nltk
 from nltk.corpus import stopwords # Import the stop word list
 
 import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
+#warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
-def review_to_words( raw_review ):
+def review_to_words(raw_review):
     # Function to convert a raw review to a string of words
     # The input is a single string (a raw movie review), and
     # the output is a single string (a preprocessed movie review)
@@ -58,7 +56,7 @@ def review_to_words( raw_review ):
 
 
 def text_to_wordlist(text, remove_stopwords=False):
-    text = re.sub("[^a-zA-Z]"," ", text)
+    text = re.sub("[^a-zA-Z]", " ", text)
     words = text.lower().split()
     # Optionally remove stop words (false by default)
     if remove_stopwords:
@@ -68,7 +66,7 @@ def text_to_wordlist(text, remove_stopwords=False):
     return words
 
 
-def make_feature_matrix(words, model, num_features):
+def make_feature_matrix(words, model):
     # feature_matrix = np.zeros((len(words), num_features), dtype="float32")
     feature_matrix = []
     # counter = 0.
@@ -153,7 +151,7 @@ def getAvgFeatureVecs(reviews, model, num_features):
     for review in reviews:
        #
        # Print a status message every 1000th review
-       if counter%5000. == 0.:
+       if counter % 5000. == 0.:
            print("Review %d of %d" % (counter, len(reviews)))
        #
        # Call the function (defined above) that makes average feature vectors
@@ -164,104 +162,105 @@ def getAvgFeatureVecs(reviews, model, num_features):
     return reviewFeatureVecs
 
 
-def text_to_matrix(text, model):
-    words = text_to_wordlist(text, remove_stopwords=False)
-    num_features = 100
-    matrix = make_feature_matrix(words, model, num_features)
-    # TODO: как из word2vec доставать размерность слова в модели
-    return matrix
-
-
-def load_and_test():
-    print "Loading word2vec model..."
-    model = Word2Vec.load("100features_40minwords_10context")
-
+def simple_load_and_test():
     print "Loading data..."
-    test_data = pd.read_csv("./moviReviews/testData.tsv",
+    test_data = pd.read_csv("./testData.tsv",
                             header=0, delimiter="\t", quoting=3)
     print "size of test data = %d" % test_data.shape[0]
 
-    print "Translating reviews to matrix format..."
+    print "Translating reviews to raw text format..."
     x_test = []
-    for review in test_data["review"]:
+    max_count = 500 # test_data.shape[0]
+    print "max_count = %d" % max_count
+    for review in test_data["review"][0:max_count]:
         review_text = BeautifulSoup(review).get_text()
-        x_test.append(text_to_matrix(review_text, model))
+        x_test.append(review_text)
 
-    classifier = TextClassifier.TextClassifier()
+    classifier = CNNTextClassifier.TextClassifier(model_path="../100features_40minwords_10context")
     print "Loading state for classifier..."
-    classifier.load("cnn_state")
+    classifier.load("cnn_state_last")
 
     print "Prediction..."
     result = classifier.predict(x_test)
     result = np.array(result)
     result = result.flatten(1)
     # Write the test results
-    output = pd.DataFrame(data={"id":test_data["id"], "sentiment": result})
-    output.to_csv("cnn_word2vec_load.csv", index=False, quoting=3)
+    output = pd.DataFrame(data={"id": test_data["id"][0:max_count], "sentiment": result})
+    output.to_csv("cnn_word2vec_test20.05.2015.csv", index=False, quoting=3)
 
 
 def main():
-    print "Loading word2vec model..."
-    model = Word2Vec.load("100features_40minwords_10context")
-
     print "Loading data..."
-    train = pd.read_csv("./moviReviews/labeledTrainData.tsv",
+    train = pd.read_csv("labeledTrainData.tsv",
                         header=0, delimiter="\t", quoting=3)
-    test_data = pd.read_csv("./moviReviews/testData.tsv",
+    test_data = pd.read_csv("testData.tsv",
                             header=0, delimiter="\t", quoting=3)
 
     print "size of train data = %d, size of test data = %d" % (train.shape[0],
                                                                test_data.shape[0])
 
-    print "Translating reviews to matrix format..."
+    print "Translating reviews to raw text format..."
     x_train = []
-    max_count = 1000 #train.shape[0]
-    print "max_count = %d" % max_count
+    max_count = 1000  #train.shape[0]
+    print "number of samples = %d" % max_count
 
-    #count = 0
+    print "Translating reviews to raw text format..."
     for review in train["review"][0:max_count]:
         review_text = BeautifulSoup(review).get_text()
-        x_train.append(text_to_matrix(review_text, model))
-        #count += 1
-        #if count >= max_count:
-        #    break
+        x_train.append(review_text)
 
     x_test = []
-    #count = 0
-    for review in test_data["review"]:
+    for review in test_data["review"][0:max_count]:
         review_text = BeautifulSoup(review).get_text()
-        x_test.append(text_to_matrix(review_text, model))
-        #count += 1
-        #if count >= max_count:
-        #    break
+        x_test.append(review_text)
 
-    classifier = TextClassifier.TextClassifier(n_epochs=36)
+    classifier = CNNTextClassifier.TextClassifier(learning_rate=0.1, output_type='softmax',
+                                               seed=0,
+                                               model_path="../100features_40minwords_10context")
+    #classifier = TextClassifier.TextClassifier(word_dimension=400,
+    #                                           model_path="../word2vec.model")
+
+    '''
+    classifier.ready()
+    print "Loading state for classifier..."
+    classifier.load("cnn_state_last")
+    '''
+
     print "Fitting a cnn to labeled training data..."
     y_train = np.array(train["sentiment"][0:max_count], dtype='int32')
     x_train = np.array(x_train)
-    #print x_train.shape
-    #print y_train[0]
-    classifier.fit(x_train, y_train)
-    classifier.save_state("cnn_state")
 
-    #x_test = np.array(x_test)
+    try:
+        classifier.fit(x_train, y_train, n_epochs=100)
+    except:
+        new_state_path = "cnn_state_" + datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+        print "Saving state to '%s'..." % new_state_path
+        classifier.save_state(new_state_path)
+        raise
 
-    #print x_test[0].shape[0]
+    new_state_path = "cnn_state_" + datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+    print "Saving state to '%s'..." % new_state_path
+    classifier.save_state(new_state_path)
+
+    '''
+    print "Predicting test results..."
     # Test & extract results
     result = classifier.predict(x_test)
     # TODO: избавиться от необходимости это делать
     result = np.array(result)
     result = result.flatten(1)
 
-    # Write the test results
-    output = pd.DataFrame(data={"id":test_data["id"][0:max_count], "sentiment": result})
-    output.to_csv("cnn_word2vec.csv", index=False, quoting=3)
 
-    classifier.save_state("cnn_state")
+    # Write the test results
+    print "Save test results..."
+    output = pd.DataFrame(data={"id": test_data["id"], "sentiment": result})
+    path_for_results = "test_results_" + datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+    output.to_csv(path_for_results, index=False, quoting=3)
+    '''
 
 if __name__ == '__main__':
     start_time = time.time()
-    load_and_test()
+    main()
     print("--- %s seconds ---" % (time.time() - start_time))
 
 '''
