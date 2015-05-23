@@ -97,8 +97,8 @@ class ReutersParser(HTMLParser):
                 else:
                     self.__docs["test"].append(self.__tags_store)
                 self.__reset()
-            elif ( tag == "topics" or tag == "places" or tag == "people" or tag == "orgs" \
-                or tag =="exchanges" ): #TODO: or tag == 'companies' нет информации о всех возможных именах компаний
+            elif ( tag == "topics" or tag == "places" or tag == "people" or tag == "orgs"
+                   or tag =="exchanges" ): #TODO: or tag == 'companies' нет информации о всех возможных именах компаний
                 if (self.is_multilabel):
                     self.__tags_store[tag] =  ((self.target_dict_vectorizer[tag].transform( { item:1 for item in self.__d_store} ))).toarray()[0]
                 else:  
@@ -142,27 +142,30 @@ class ReutersParser(HTMLParser):
 
         value: "data" or "target"
         """
-        if (value == "data"):
-            if (self.is_multilabel):
-                return [ line["body"] for line in self.__docs[subset] if len(line[category]) != 0 and len(line["body"])!= 0 ]
+        if value == "data":
+            if self.is_multilabel:
+                return [line["body"] for line in self.__docs[subset] if len(line[category]) != 0
+                        and len(line["body"]) > 5]
             else:
-                return [ line["body"] for line in self.__docs[subset] if len(line[category]) == 1 and len(line["body"])!= 0]
-        if (value == "target"): 
-            if (self.is_multilabel):
-                return np.array( [line[category] for line in self.__docs[subset] if len(line[category]) != 0 and len(line["body"])!= 0]  )
+                return [line["body"] for line in self.__docs[subset] if len(line[category]) == 1
+                        and len(line["body"]) > 5]
+        if value == "target":
+            if self.is_multilabel:
+                return np.array([line[category] for line in self.__docs[subset] if len(line[
+                    category]) != 0 and len(line["body"]) > 5])
             else:
-                return np.array( [line[category][0] for line in self.__docs[subset] if len(line[category]) == 1 and len(line["body"])!= 0]  )
-        if (value == "title"):
-            if (self.is_multilabel):
-                return ( [line["title"] for line in self.__docs[subset] if len(line[category]) != 0 and len(line["body"])!= 0] )
+                return np.array([line[category][0] for line in self.__docs[subset] if len(line[
+                    category]) == 1 and len(line["body"]) > 5])
+        if value == "title":
+            if self.is_multilabel:
+                return ([line["title"] for line in self.__docs[subset] if len(line[category]) !=
+                          0 and len(line["body"]) > 5])
             else:
-                return ( [line["title"] for line in self.__docs[subset] if len(line[category]) == 1 and len(line["body"])!= 0] )
+                return ([line["title"] for line in self.__docs[subset] if len(line[category]) ==
+                          1 and len(line["body"]) > 5])
         
     def get_name(self, category, number):
-        if (self.is_multilabel):
+        if self.is_multilabel:
             return self.target_dict_vectorizer[category].get_feature_names()[number]
         else:
             return self.numbers_to_types[category][number]
-
-
-
