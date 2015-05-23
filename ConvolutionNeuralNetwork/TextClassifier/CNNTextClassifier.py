@@ -196,6 +196,8 @@ class CNNForSentences(object):
 
     #same as negative-log-likelikhood
     def nll_multiclass(self, y):
+        # self.p_y_given_x - матрица, состоящая из 1ой строки с вероятностями каждого класса
+        # T.log(self.p_y_given_x)[0, y[0]] - это вероятность настоящего класса
         # negative log likelihood based on multiclass cross entropy error
         # y.shape[0] is (symbolically) the number of rows in y, i.e.,
         # number of time steps (call it T) in the sequence
@@ -207,7 +209,7 @@ class CNNForSentences(object):
         # LP[n-1,y[n-1]]] and T.mean(LP[T.arange(y.shape[0]),y]) is
         # the mean (across minibatch examples) of the elements in v,
         # i.e., the mean log-likelihood across the minibatch.
-        return -T.mean(T.log(self.p_y_given_x)[0, y[0]])
+        return -T.mean(T.log(self.p_y_given_x)[0][y[0]])
 
     def errors(self, y):
         """Return a float representing the number of errors in the sequence
@@ -253,8 +255,8 @@ def make_feature_matrix(words, model):
             feature_matrix.append(list(model[word]))
             # feature_matrix[counter] = model[word]
             # counter += 1
-        # else:
-        #    print 'word', word, 'is not in a model\n'
+        else:
+            feature_matrix.append([0 for i in xrange(model.layer1_size)])
     feature_matrix = numpy.array(feature_matrix)
     return feature_matrix
 
@@ -267,7 +269,7 @@ def text_to_matrix(text, model):
 
 class CNNTextClassifier(BaseEstimator):
 
-    def __init__(self, learning_rate=0.001, n_epochs=3, activation='tanh', window=5,
+    def __init__(self, learning_rate=0.1, n_epochs=3, activation='tanh', window=5,
                  n_hidden=10, n_filters=25, pooling_type='max_overtime',
                  output_type='softmax', L1_reg=0.00, L2_reg=0.00, n_out=2, word_dimension=100,
                  seed=0, model_path=None):
@@ -326,7 +328,7 @@ class CNNTextClassifier(BaseEstimator):
         #input
         self.x = T.tensor4('x')
         #output (a label)
-        self.y = T.ivector('y')
+        self.y = T.lvector('y')
 
         if self.activation == 'tanh':
             activation = T.tanh
@@ -382,10 +384,14 @@ class CNNTextClassifier(BaseEstimator):
         :type n_epochs: int/None
         :param n_epochs: used to override self.n_epochs from init.
         """
+        assert max(y_train) < self.n_out
+        assert min(y_train) >= 0
+        assert len(x_train) == len(y_train)
         print "Feature selection..."
         x_train_matrix = self.__feature_selection(x_train)
         if x_test is not None:
             assert(y_test is not None)
+            assert len(x_test) == len(y_test)
             interactive = True
             x_test_matrix = self.__feature_selection(x_test)
         else:
@@ -394,13 +400,13 @@ class CNNTextClassifier(BaseEstimator):
 
 
         # подготовим CNN
-        self.n_out = len(numpy.unique(y_train))
         if not self.is_ready:
             self.ready()
         #input
         #x = T.matrix('x')
         #output (a label)
-        #y = T.ivector('y')
+        #y = T.lvector('y')
+        # TODO: на самом деле self.y - это не вектор, а всего лишь одно число - номер класса
         self.compute_error = theano.function(inputs=[self.x, self.y],
                                              outputs=self.cnn.loss(self.y))
 
@@ -430,46 +436,51 @@ class CNNTextClassifier(BaseEstimator):
         if interactive:
             n_test_samples = x_test_matrix.shape[0]
 
-        y_train = y_train.reshape(y_train.shape[0], 1)
+        y_train_as_matrix = y_train.reshape(y_train.shape[0], 1)
+        if interactive:
+            y_test_as_matrix = y_test.reshape(y_test.shape[0], 1)
 
-        print "Count score for not trained classifier INSIDE FIT METHOD..."
-        print self.score(x_train, y_train)
-
-        visualization_frequency = min(999, n_train_samples)
+        visualization_frequency = min(2000, n_train_samples - 1)
         epoch = 0
         while epoch < n_epochs:
             epoch += 1
+            # compute loss on training set
+            print "start epoch %d: this TRAIN SCORE: %f"\
+                  % (epoch, float(self.score(x_train, y_train)))
+
             for idx in xrange(n_train_samples):
 
                 x_current_input = x_train_matrix[idx].reshape(1, 1, x_train_matrix[idx].shape[0],
                                                               x_train_matrix[idx].shape[1])
-                cost_ij = self.train_model(x_current_input, y_train[idx])
+                cost_ij = self.train_model(x_current_input, y_train_as_matrix[idx])
 
                 if idx % visualization_frequency == 0 and idx > 0:
-                    # compute loss on training set
-                    train_losses = [self.compute_error(x_train_matrix[i].reshape(1, 1,
-                                                                                 x_train_matrix[i].shape[0],
-                                                       x_train_matrix[i].shape[1]), y_train[i])
-                                    for i in xrange(n_train_samples)]
-                    this_train_loss = numpy.mean(train_losses)
-                    print self.score(x_train, y_train)
-                    print "cost_ij = ", cost_ij
-
+                    # print "train cost_ij = ", cost_ij
                     if interactive:
-                        test_losses = [self.compute_error(x_test_matrix[i], y_test[i])
+                        test_losses = [self.compute_error(x_test_matrix[i].reshape(1, 1,
+                                                                                   x_test_matrix[i]
+                                                                                   .shape[0],
+                                                          x_test_matrix[i].shape[1]), y_test_as_matrix[i])
                                        for i in xrange(n_test_samples)]
                         this_test_loss = numpy.mean(test_losses)
-                        note = 'epoch %i, seq %i/%i, tr loss %f te loss %f lr: %f' % \
-                               (epoch, idx + 1, n_train_samples, this_train_loss, this_test_loss,
-                                self.learning_rate)
-                        print note
+                        print "epoch %d, review %d: this test losses(score): %f, this TEST MEAN " \
+                              "SCORE: %f" % (epoch, idx, float(this_test_loss),
+                                             float(self.score(x_test, y_test)))
 
                     else:
-                        print "epoch %d, review %d: this train losses: %f"\
-                              % (epoch, idx, this_train_loss)
+                        # compute loss on training set
+                        train_losses = [self.compute_error(x_train_matrix[i].reshape(1, 1,
+                                                                                     x_train_matrix[i].shape[0],
+                                                           x_train_matrix[i].shape[1]), y_train_as_matrix[i])
+                                        for i in xrange(n_train_samples)]
+                        this_train_loss = numpy.mean(train_losses)
+                        print self.score(x_train, y_train)
+                        # print "cost_ij = ", cost_ij
+                        print "epoch %d, review %d: this test losses: %f"\
+                              % (epoch, idx, float(this_train_loss))
 
-        print "Fitting was finished. Train score:"
-        print self.score(x_train, y_train)
+        print "Fitting was finished. Test score:"
+        print self.score(x_test, y_test)
 
     def predict(self, data):
         if isinstance(data[0], str) or isinstance(data[0], unicode):
