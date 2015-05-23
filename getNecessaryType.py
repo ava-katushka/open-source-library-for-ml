@@ -1,20 +1,27 @@
-path = "C:\\Users\\Toshik\\AML\\instance_types_en.nt"
-datafile = open(path, 'r')
+import os
+import sys
+import argparse
 
-pathCommon = "C:\\Users\\Toshik\\AML\\Entities"
+parser = argparse.ArgumentParser()
+parser.add_argument('--pathTypes', default = os.getcwd() + '\\Entities.txt')
+parser.add_argument('--pathEntities', default = os.getcwd() + 'Entities')
+parser.add_argument('--pathInstanceTypes', default = os.getcwd() + '\\instance_types_en.nt')
+paths = parser.parse_args(sys.argv[1:])
+
+datafile = open(paths.pathInstanceTypes, 'r')
+
 nameCommon = "<http://dbpedia.org/ontology/"
 
-pathTypes = "C:\\Users\\Toshik\\AML\\Entities.txt"
-dataTypes = open(pathTypes, 'r')
+dataTypes = open(paths.pathTypes, 'r')
 
 dataTypesText = dataTypes.read().split('\n')
 
 types = []
 for type in dataTypesText:
-    types.append(open(pathCommon + "\\" + type + ".txt", 'w'))
+    types.append(open(paths.pathEntities + "\\" + type + ".txt", 'w'))
 
 data = datafile.readline()
-while (data.__len__() != 0):
+while (len(data) != 0):
     dataset = data.split(' ')
     for i in  range(0, len(dataTypesText)):
         if dataset[2] == nameCommon + dataTypesText[i] + ">":
