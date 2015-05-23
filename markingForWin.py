@@ -25,13 +25,21 @@ from collections import OrderedDict
 def get_entities(json_of_article):
     entities = {}
     for j in json_of_article:
-        s = (j['Type'])
-        for pair in j['Boundaries']:
-            entities[ pair[0]] = list([pair[1], entity_color[s] ])
+        if j != {}:
+            s = (j['Type'])
+            for pair in j['Boundaries']:
+                entities[ pair[0]] = list([pair[1], entity_color[s] ])
     entities = OrderedDict(sorted(entities.items(), key=lambda t:t[0]))
     return entities
 
-entity_color = {'Person':'violetred', 'PopulatedPlace':'blue', 'Organisation':'red'}
+color1 ='#' + sys.argv[4][2:];
+color2 ='#' + sys.argv[5][2:];
+color3 ='#' + sys.argv[6][2:];
+
+
+
+
+entity_color = {'Person':color1, 'PopulatedPlace':color2, 'Organisation':color3}
 
 entities = get_entities(json_of_article)
 #print(entities)
@@ -57,14 +65,17 @@ def make_html(article, entities, path_to_html):
                         with tag('p'):
                             doc.attr(style='word-spacing:20px;font-style:italic;')
                             with tag('font'):
-                                doc.attr(color='red')
-                                text(' Organisation:red ')
+                                if(color2 != '#000000'):
+                                    doc.attr(color=color2)
+                                    text(' Organisation ')
                             with tag('font'):
-                                doc.attr(color='blue')
-                                text(' PopulatedPlace:blue ')
+                                if(color3 != '#000000'):
+                                    doc.attr(color=color3)
+                                    text(' PopulatedPlace ')
                             with tag('font'):
-                                doc.attr(color='violetred')
-                                text(' Person:violet ')
+                                if(color1 != '#000000'):
+                                    doc.attr(color=color1)
+                                    text(' Person ')
             with tag('pre'):
                 doc.attr(style='white-space: pre-wrap')
                 with tag('p'):
@@ -77,8 +88,12 @@ def make_html(article, entities, path_to_html):
                         else:
                             text(article[k: d[0]])
                         with tag('font'):
-                            doc.attr(color=d[1][1])
-                            with tag('b'):
+                            if(d[1][1]!='#000000'):
+                                doc.attr(color=d[1][1])
+                                with tag('b'):
+                                    text(article[d[0]: d[1][0]])
+                                    k = d[1][0]
+                            else:
                                 text(article[d[0]: d[1][0]])
                                 k = d[1][0]
                     text(article[k:])
