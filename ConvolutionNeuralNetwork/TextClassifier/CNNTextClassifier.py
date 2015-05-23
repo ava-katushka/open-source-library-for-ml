@@ -9,12 +9,6 @@ import theano.tensor as T
 from theano.tensor.nnet import conv
 from gensim.models import Word2Vec
 
-import sys
-sys.path.insert(0, '../../ImageClassifier_v2')
-sys.path.insert(0, '../ImageClassifier_v2')
-sys.path.insert(0, '../ConvolutionNeuralNetwork/ImageClassifier_v2')
-import Layers
-
 
 theano.config.exception_verbosity = 'high'
 
@@ -97,7 +91,104 @@ class MaxOverTimePoolingLayer(object):
         :param pooling_input: вход для пулинга
         """
         max_args = T.argmax(pooling_input, axis=1)
-        self.output = pooling_input[xrange(n_filters), max_args]
+        output = pooling_input[xrange(n_filters), max_args]
+        self.output = output.flatten(1)
+
+
+class FullyConnectedLayer(object):
+    def __init__(self, rng, input, n_in, n_out, W=None, b=None, activation=T.tanh):
+        """
+        Скрытый слой. W - матрица весов размерности (n_in, n_out), b - вектор сдвигов (n_out)
+
+        :type rng: np.random.RandomState
+        :param rng: генератор рандомных чисел
+
+        :type input: theano.tensor.lvector
+        :param input: символичный вектор размерности (n_in)
+
+        :type n_in: int
+        :param n_in: размерность входа
+
+        :type n_out: int
+        :param n_out: размерность выхода
+
+        :type activation: theano.Op or function
+        :param activation: функция активации
+        """
+        self.input = input
+
+        # `W` is initialized with `W_values` which is uniformely sampled
+        # from sqrt(-6./(n_in+n_hidden)) and sqrt(6./(n_in+n_hidden))
+        # for tanh activation function
+        if W is None:
+            W_values = numpy.asarray(
+                rng.uniform(
+                    low=-numpy.sqrt(6. / (n_in + n_out)),
+                    high=numpy.sqrt(6. / (n_in + n_out)),
+                    size=(n_in, n_out)
+                ),
+                dtype=theano.config.floatX
+            )
+            if activation == theano.tensor.nnet.sigmoid:
+                W_values *= 4
+
+            W = theano.shared(value=W_values, name='W', borrow=True)
+
+        if b is None:
+            b_values = numpy.zeros((n_out,), dtype=theano.config.floatX)
+            b = theano.shared(value=b_values, name='b', borrow=True)
+
+        self.W = W
+        self.b = b
+
+        lin_output = T.dot(input, self.W) + self.b
+        if activation is None:
+            self.output = lin_output
+        else:
+            self.output =  activation(lin_output)
+        # параметры слоя
+        self.params = [self.W, self.b]
+
+
+class SoftmaxLayer(object):
+    def __init__(self, input, n_in, n_out):
+        """ Инициализации параметров логистической регрессии
+
+        :type input: theano.tensor.TensorType
+        :param input: символичный вектор, описывающий вход
+
+        :type n_in: int
+        :param n_in: number of input units, the dimension of the space in which the datapoints lie
+
+        :type n_out: int
+        :param n_out: размерость выхода - количество целевых значений для классификации
+        """
+        self.W = theano.shared(value=numpy.zeros((n_in, n_out), dtype=theano.config.floatX),
+                               name='W', borrow=True)
+        # Инициализация вектора сдвига
+        b_values = numpy.zeros((n_out,), dtype=theano.config.floatX)
+        self.b = theano.shared(value=b_values, name='b', borrow=True)
+
+        # Вычисление вектора принадлежности к каждому классу
+        self.p_y_given_x = T.nnet.softmax(T.dot(input, self.W) + self.b).flatten(1)
+
+        # Вычисление наиболее вероятного класса
+        self.y_pred = T.argmax(self.p_y_given_x)
+
+        # parameters of the model
+        self.params = [self.W, self.b]
+
+        # L1 norm ; регуляризоатор
+        self.L1 = 0
+        self.L1 += abs(self.W.sum())
+
+        # square of L2 norm ; ещё один регуляризатор
+        self.L2_sqr = 0
+        self.L2_sqr += (self.W ** 2).sum()
+
+    def negative_log_likelihood(self, y):
+        # self.p_y_given_x - вектор принадлежности к каждому классу
+        return -T.log(self.p_y_given_x)[y]
 
 
 class KMaxPoolingLayer(object):
@@ -124,7 +215,7 @@ class CNNForSentences(object):
     """
     Свёрточная сеть с одним свёрточным слоем
     """
-    def __init__(self, input, n_out, n_hidden, output_type,
+    def __init__(self, input, n_out, n_hidden,
                  n_filters, window, word_dimension, activation=T.tanh, seed=0):
         """
         :type input: theano.tensor.dtensor4
@@ -136,13 +227,10 @@ class CNNForSentences(object):
         :param n_out: количество целевых классов классификации
         :param n_hidden:  число нейронов скрытого полносвязного слоя
         :param n_filters: число фильтров свёртки
-        :type output_type: string
-        :param output_type: type of decision 'softmax', 'binary', 'real'
         :param window: размер окна для фильтров
         :param activation: активационная функция
         :param seed: начальное значение для генератора случайных чисел
         """
-        self.output_type = output_type
         self.softmax = T.nnet.softmax
 
         rng = numpy.random.RandomState(seed)
@@ -155,15 +243,13 @@ class CNNForSentences(object):
         layer1_input = layer1_input.flatten(2)
         # TODO: check it!
         self.layer1 = MaxOverTimePoolingLayer(layer1_input, n_filters)
-        layer2_input = self.layer1.output #.flatten(1)
+        layer2_input = self.layer1.output
         # После этого слоя осталось ровно n_filters элементов
-        self.layer2 = Layers.FullyConnectedLayer(rng, layer2_input,
-                                                 n_in=n_filters,
-                                                 n_out=n_hidden, activation=activation)
+        self.layer2 = FullyConnectedLayer(rng, layer2_input, n_in=n_filters,
+                                          n_out=n_hidden, activation=activation)
 
         # classify the values of the fully-connected sigmoidal layer
-        self.layer3 = Layers.SoftmaxLayer(input=self.layer2.output,
-                                          n_in=n_hidden, n_out=n_out)
+        self.layer3 = SoftmaxLayer(input=self.layer2.output, n_in=n_hidden, n_out=n_out)
 
         # CNN regularization
         self.L1 = self.layer3.L1
@@ -175,62 +261,7 @@ class CNNForSentences(object):
         self.y_pred = self.layer3.y_pred
         self.p_y_given_x = self.layer3.p_y_given_x
 
-        if self.output_type == 'real':
-            self.loss = lambda y: self.mse(y)
-        elif self.output_type == 'binary':
-            self.loss = lambda y: self.nll_binary(y)
-        elif self.output_type == 'softmax':
-            # push through softmax, computing vector of class-membership
-            # probabilities in symbolic form
-            self.loss = lambda y: self.nll_multiclass(y)
-        else:
-            raise NotImplementedError
-
-    def mse(self, y):
-        # error between output and target
-        return T.mean((self.y_pred - y) ** 2)
-
-    def nll_binary(self, y):
-        # negative log likelihood based on binary cross entropy error
-        return T.mean(T.nnet.binary_crossentropy(self.p_y_given_x, y))
-
-    #same as negative-log-likelikhood
-    def nll_multiclass(self, y):
-        # negative log likelihood based on multiclass cross entropy error
-        # y.shape[0] is (symbolically) the number of rows in y, i.e.,
-        # number of time steps (call it T) in the sequence
-        # T.arange(y.shape[0]) is a symbolic vector which will contain
-        # [0,1,2,... n-1] T.log(self.p_y_given_x) is a matrix of
-        # Log-Probabilities (call it LP) with one row per example and
-        # one column per class LP[T.arange(y.shape[0]),y] is a vector
-        # v containing [LP[0,y[0]], LP[1,y[1]], LP[2,y[2]], ...,
-        # LP[n-1,y[n-1]]] and T.mean(LP[T.arange(y.shape[0]),y]) is
-        # the mean (across minibatch examples) of the elements in v,
-        # i.e., the mean log-likelihood across the minibatch.
-        return -T.mean(T.log(self.p_y_given_x)[0, y[0]])
-
-    def errors(self, y):
-        """Return a float representing the number of errors in the sequence
-        over the total number of examples in the sequence ; zero one
-        loss over the size of the sequence
-
-        :type y: theano.tensor.TensorType
-        :param y: corresponds to a vector that gives for each example the
-                  correct label
-        """
-        # check if y has same dimension of y_pred
-        if y.ndim != self.y_out.ndim:
-            raise TypeError('y should have the same shape as self.y_out',
-                ('y', y.type, 'y_pred', self.y_pred.type))
-
-        if self.output_type in ('binary', 'softmax'):
-            # check if y is of the correct datatype
-            if y.dtype.startswith('int'):
-                # the T.neq operator returns a vector of 0s and 1s, where 1
-                # represents a mistake in prediction
-                return T.mean(T.neq(self.y_pred, y))
-            else:
-                raise NotImplementedError()
+        self.loss = lambda y: self.layer3.negative_log_likelihood(y)
 
 
 def text_to_word_list(text, remove_stopwords=False):
@@ -253,8 +284,8 @@ def make_feature_matrix(words, model):
             feature_matrix.append(list(model[word]))
             # feature_matrix[counter] = model[word]
             # counter += 1
-        # else:
-        #    print 'word', word, 'is not in a model\n'
+        else:
+            feature_matrix.append([0 for i in xrange(model.layer1_size)])
     feature_matrix = numpy.array(feature_matrix)
     return feature_matrix
 
@@ -267,9 +298,9 @@ def text_to_matrix(text, model):
 
 class CNNTextClassifier(BaseEstimator):
 
-    def __init__(self, learning_rate=0.001, n_epochs=3, activation='tanh', window=5,
+    def __init__(self, learning_rate=0.1, n_epochs=3, activation='tanh', window=5,
                  n_hidden=10, n_filters=25, pooling_type='max_overtime',
-                 output_type='softmax', L1_reg=0.00, L2_reg=0.00, n_out=2, word_dimension=100,
+                 L1_reg=0.00, L2_reg=0.00, n_out=2, word_dimension=100,
                  seed=0, model_path=None):
         """
         :param learning_rate: темп обучения
@@ -280,9 +311,8 @@ class CNNTextClassifier(BaseEstimator):
         :param n_hidden: число нейронов в скрытом слое
         :param n_filters: число фильтров
         :param pooling_type: тип пулинга, пока что доступен только max_overtime пулинг
-        :param output_type:
-        :param L1_reg:
-        :param L2_reg:
+        :param L1_reg: параметр для регуляризации
+        :param L2_reg: параметр для регуляризации
         :param n_out: количество классов для классификации
         :param word_dimension: размерность слов
         :param seed: начальное значение для генератора случайных чисел
@@ -296,7 +326,6 @@ class CNNTextClassifier(BaseEstimator):
         self.L1_reg = float(L1_reg)
         self.L2_reg = float(L2_reg)
         self.activation = activation
-        self.output_type = output_type
         self.n_out = n_out
         self.n_filters = n_filters
         self.pooling_type = pooling_type
@@ -305,7 +334,7 @@ class CNNTextClassifier(BaseEstimator):
         self.seed = seed
         self.is_ready = False
         self.model_path = model_path
-        # TODO:
+
         if model_path is None:
             if word_dimension == 100:
                 self.model_path = "100features_40minwords_10context"
@@ -326,7 +355,7 @@ class CNNTextClassifier(BaseEstimator):
         #input
         self.x = T.tensor4('x')
         #output (a label)
-        self.y = T.ivector('y')
+        self.y = T.lscalar('y')
 
         if self.activation == 'tanh':
             activation = T.tanh
@@ -341,8 +370,7 @@ class CNNTextClassifier(BaseEstimator):
 
         self.cnn = CNNForSentences(input=self.x,
                        n_out=self.n_out, activation=activation,
-                       n_hidden=self.n_hidden, n_filters=self.n_filters,
-                       output_type=self.output_type, window=self.window,
+                       n_hidden=self.n_hidden, n_filters=self.n_filters, window=self.window,
                        word_dimension=self.word_dimension, seed=self.seed)
 
         #self.cnn.predict expects one input.
@@ -382,40 +410,36 @@ class CNNTextClassifier(BaseEstimator):
         :type n_epochs: int/None
         :param n_epochs: used to override self.n_epochs from init.
         """
+        assert max(y_train) < self.n_out
+        assert min(y_train) >= 0
+        assert len(x_train) == len(y_train)
         print "Feature selection..."
         x_train_matrix = self.__feature_selection(x_train)
         if x_test is not None:
             assert(y_test is not None)
+            assert len(x_test) == len(y_test)
             interactive = True
             x_test_matrix = self.__feature_selection(x_test)
         else:
             interactive = False
         print "Feature selection finished"
 
-
         # подготовим CNN
-        self.n_out = len(numpy.unique(y_train))
         if not self.is_ready:
             self.ready()
-        #input
-        #x = T.matrix('x')
-        #output (a label)
-        #y = T.ivector('y')
+
         self.compute_error = theano.function(inputs=[self.x, self.y],
                                              outputs=self.cnn.loss(self.y))
 
-        cost = self.cnn.loss(self.y)
-            #+ self.L1_reg * self.cnn.L1\
-            #+ self.L2_reg * self.cnn.L2_sqr
-
+        cost = self.cnn.loss(self.y) + self.L1_reg * self.cnn.L1 + self.L2_reg * self.cnn.L2_sqr
 
         # Создаём список градиентов для всех параметров модели
         grads = T.grad(cost, self.cnn.params)
 
         # train_model это функция, которая обновляет параметры модели с помощью SGD
-        # Так как модель имеет много парамметров, было бы утомтельным вручную создавать правила обновления
-        # для каждой модели, поэтому мы создали updates list для автоматического прохождения по парам
-        # (params[i], grads[i])
+        # Так как модель имеет много парамметров, было бы утомтельным вручную создавать правила
+        # обновления для каждой модели, поэтому нужен updates list для автоматического
+        # прохождения по парам (params[i], grads[i])
         updates = [
             (param_i, param_i - self.learning_rate * grad_i)
             for param_i, grad_i in zip(self.cnn.params, grads)
@@ -430,15 +454,14 @@ class CNNTextClassifier(BaseEstimator):
         if interactive:
             n_test_samples = x_test_matrix.shape[0]
 
-        y_train = y_train.reshape(y_train.shape[0], 1)
-
-        print "Count score for not trained classifier INSIDE FIT METHOD..."
-        print self.score(x_train, y_train)
-
-        visualization_frequency = min(999, n_train_samples)
+        visualization_frequency = min(2000, n_train_samples - 1)
         epoch = 0
         while epoch < n_epochs:
             epoch += 1
+            # compute loss on training set
+            print "start epoch %d: this TRAIN SCORE: %f"\
+                  % (epoch, float(self.score(x_train, y_train)))
+
             for idx in xrange(n_train_samples):
 
                 x_current_input = x_train_matrix[idx].reshape(1, 1, x_train_matrix[idx].shape[0],
@@ -446,30 +469,32 @@ class CNNTextClassifier(BaseEstimator):
                 cost_ij = self.train_model(x_current_input, y_train[idx])
 
                 if idx % visualization_frequency == 0 and idx > 0:
-                    # compute loss on training set
-                    train_losses = [self.compute_error(x_train_matrix[i].reshape(1, 1,
-                                                                                 x_train_matrix[i].shape[0],
-                                                       x_train_matrix[i].shape[1]), y_train[i])
-                                    for i in xrange(n_train_samples)]
-                    this_train_loss = numpy.mean(train_losses)
-                    print self.score(x_train, y_train)
-                    print "cost_ij = ", cost_ij
-
+                    # print "train cost_ij = ", cost_ij
                     if interactive:
-                        test_losses = [self.compute_error(x_test_matrix[i], y_test[i])
+                        test_losses = [self.compute_error(x_test_matrix[i].reshape(1, 1,
+                                                                                   x_test_matrix[i]
+                                                                                   .shape[0],
+                                                          x_test_matrix[i].shape[1]), y_test[i])
                                        for i in xrange(n_test_samples)]
                         this_test_loss = numpy.mean(test_losses)
-                        note = 'epoch %i, seq %i/%i, tr loss %f te loss %f lr: %f' % \
-                               (epoch, idx + 1, n_train_samples, this_train_loss, this_test_loss,
-                                self.learning_rate)
-                        print note
+                        print "epoch %d, review %d: this test losses(score): %f, this TEST MEAN " \
+                              "SCORE: %f" % (epoch, idx, float(this_test_loss),
+                                             float(self.score(x_test, y_test)))
 
                     else:
-                        print "epoch %d, review %d: this train losses: %f"\
-                              % (epoch, idx, this_train_loss)
+                        # compute loss on training set
+                        train_losses = [self.compute_error(x_train_matrix[i].reshape(1, 1,
+                                                                                     x_train_matrix[i].shape[0],
+                                                           x_train_matrix[i].shape[1]), y_train[i])
+                                        for i in xrange(n_train_samples)]
+                        this_train_loss = numpy.mean(train_losses)
+                        print self.score(x_train, y_train)
+                        # print "cost_ij = ", cost_ij
+                        print "epoch %d, review %d: this test losses: %f"\
+                              % (epoch, idx, float(this_train_loss))
 
-        print "Fitting was finished. Train score:"
-        print self.score(x_train, y_train)
+        print "Fitting was finished. Test score:"
+        print self.score(x_test, y_test)
 
     def predict(self, data):
         if isinstance(data[0], str) or isinstance(data[0], unicode):
@@ -491,20 +516,6 @@ class CNNTextClassifier(BaseEstimator):
             matrix_data = numpy.array(matrix_data)
         return [self.predict_proba_wrap(matrix_data[i].reshape(1, 1, matrix_data[i].shape[0],
                                         matrix_data[i].shape[1])) for i in xrange(matrix_data.shape[0])]
-
-    def shared_dataset(self, data_xy):
-        """ Load the dataset into shared variables """
-
-        data_x, data_y = data_xy
-        #shared_x = theano.shared(numpy.asarray(data_x, dtype=theano.config.floatX))
-        shared_x = theano.shared(data_x)
-        #shared_y = theano.shared(numpy.asarray(data_y, dtype=theano.config.floatX))
-        shared_y = theano.shared(data_y)
-        # TODO:
-        if self.output_type in ('binary', 'softmax'):
-            return shared_x, T.cast(shared_y, 'int32')
-        else:
-            return shared_x, shared_y
 
     def __getstate__(self):
         """ Return state sequence."""

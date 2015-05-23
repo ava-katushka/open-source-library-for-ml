@@ -22,20 +22,32 @@ class TestTextClassifier(unittest.TestCase):
         print "size of data = %d" % data.shape[0]
 
         print "Translating reviews to raw text format..."
-        x_data = []
-        max_count = 1000
-        print "max_count = %d" % max_count
-        for review in data["review"][0:max_count]:
+        x_train = []
+        max_train_count = 500
+        print "max_train_count = %d" % max_train_count
+        for review in data["review"][0:max_train_count]:
             review_text = BeautifulSoup(review).get_text()
-            x_data.append(review_text)
+            x_train.append(review_text)
 
-        cls.x_data = np.array(x_data)
-        cls.y_data = np.array(data["sentiment"][0:max_count], dtype='int32')
+        cls.x_train = np.array(x_train)
+        cls.y_train = np.array(data["sentiment"][0:max_train_count], dtype='int32')
+
+        x_test = []
+        max_test_count = 100
+        print "max_test_count = %d" % max_test_count
+        for review in data["review"][max_train_count:max_train_count + max_test_count]:
+            review_text = BeautifulSoup(review).get_text()
+            x_test.append(review_text)
+
+        cls.x_test = np.array(x_test)
+        cls.y_test = np.array(data["sentiment"][max_train_count:max_train_count + max_test_count],
+                              dtype='int32')
 
         cls.classifier = CNNTextClassifier()
+        cls.classifier.ready()
 
-        print "Loading state for classifier..."
-        cls.classifier.load("./movieReviews/cnn_state_20150523023906")
+        #print "Loading state for classifier..."
+        #cls.classifier.load("./movieReviews/cnn_state_20150523023906")
 
     def test_dimensions(self):
         params = self.classifier.get_cnn_params()
@@ -53,22 +65,26 @@ class TestTextClassifier(unittest.TestCase):
                                                        self.classifier.n_hidden))
 
     def test_fit_score(self):
-        new_classifier = CNNTextClassifier(seed=2, learning_rate=0.1)
+        new_classifier = CNNTextClassifier(seed=2, learning_rate=0.1, L1_reg=0.01, L2_reg=0.01)
         new_classifier.ready()
         print "Count score for not trained classifier..."
-        not_trained_score = self.classifier.score(self.x_data, self.y_data)
-        print not_trained_score
+        test_score_before = self.classifier.score(self.x_test, self.y_test)
+        train_score_before = self.classifier.score(self.x_train, self.y_train)
+        print 'test score before fitting:', test_score_before
+        print 'train score before fitting:', train_score_before
 
         try:
-            new_classifier.fit(self.x_data, self.y_data, n_epochs=4)
+            new_classifier.fit(self.x_train, self.y_train, self.x_test, self.y_test, n_epochs=10)
         except KeyboardInterrupt:
             print "Fit Interrupt, if you really want to interrupt execution, try again"
 
         print "Count score..."
-        score = new_classifier.score(self.x_data, self.y_data)
-        print score
+        test_score_after = new_classifier.score(self.x_test, self.y_test)
+        train_score_after = new_classifier.score(self.x_train, self.y_train)
+        print 'test score after fitting:', test_score_after
+        print 'train score after fitting:', train_score_after
 
-        #self.assertTrue(not_trained_score < score)
+        self.assertTrue(test_score_before < test_score_after)
 
         new_params = new_classifier.get_cnn_params()
         new_state_path = "cnn_state_fit_score_test"
@@ -96,9 +112,9 @@ class TestTextClassifier(unittest.TestCase):
                 pass
 
         print "Count score for loaded params..."
-        loaded_score = self.classifier.score(self.x_data, self.y_data)
-        print loaded_score
-        self.assertEqual(score, loaded_score)
+        loaded_score = self.classifier.score(self.x_test, self.y_test)
+        print "loaded test score:", loaded_score
+        self.assertEqual(test_score_after, loaded_score)
 
 
 if __name__ == '__main__':
