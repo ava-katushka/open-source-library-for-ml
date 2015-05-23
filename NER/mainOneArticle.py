@@ -1,4 +1,4 @@
-#-*- coding: utf-8 -*-
+﻿#-*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import json
 from nltk import PorterStemmer
@@ -16,11 +16,11 @@ import argparse
 '''
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--pathTypes', default = os.getcwd() + 'Entities.txt')
-parser.add_argument('--pathWikiEntities', default = os.getcwd() + 'NewWikiEntities')
-parser.add_argument('--pathArticle', default = os.getcwd() + 'article')
-parser.add_argument('--pathLinks', default = os.getcwd() + 'links')
-parser.add_argument('--pathOutput', default = os.getcwd() + 'result.json')
+parser.add_argument('--pathTypes', default = os.getcwd() + '\\Entities.txt')
+parser.add_argument('--pathWikiEntities', default = os.getcwd() + '\\NewWikiEntities')
+parser.add_argument('--pathArticle', default = os.getcwd() + '\\article')
+parser.add_argument('--pathLinks', default = os.getcwd() + '\\links')
+parser.add_argument('--pathOutput', default = os.getcwd() + '\\result.json')
 paths = parser.parse_args(sys.argv[1:])
 
 dataTypes = open(paths.pathTypes, 'r')
