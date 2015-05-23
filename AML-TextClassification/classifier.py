@@ -7,6 +7,7 @@ from sklearn.svm import LinearSVC
 from sklearn import metrics
 from  sklearn.multiclass import OneVsRestClassifier
 from sklearn.feature_selection import VarianceThreshold
+from sklearn.cross_validation import cross_val_score
 
 
 import reuters
@@ -47,12 +48,15 @@ sgdc = SGDClassifier(alpha=0.0001, class_weight=None, epsilon=0.1,
         verbose=0, warm_start=False)
 
 
-textClassifier = TextClassifier(multilabel = True, with_titles = True)
-q = textClassifier.fit(X_train, Y_train, rp.get_corpus("train", "topics", "title"))
+textClassifier = TextClassifier(base_classifiers = [SGDClassifier()])
+q = textClassifier.fit(X_train, Y_train)#, rp.get_corpus("train", "topics", "title"))
 
-predicted = textClassifier.predict(X_test, rp.get_corpus("test", "topics", "title"))
+predicted = textClassifier.predict(X_test)#, rp.get_corpus("test", "topics", "title"))
 
-textClassifier.score(predicted, Y_test)
+
+
+print textClassifier.score(X_test, Y_test)
+print np.mean(cross_val_score(textClassifier, X_train, Y_train))
 
 
 
