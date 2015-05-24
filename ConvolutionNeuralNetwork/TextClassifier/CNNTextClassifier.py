@@ -459,8 +459,8 @@ class CNNTextClassifier(BaseEstimator):
         while epoch < n_epochs:
             epoch += 1
             # compute loss on training set
-            print "start epoch %d: this TRAIN SCORE: %f"\
-                  % (epoch, float(self.score(x_train, y_train)))
+            print "start epoch %d: this TRAIN 500 SCORE: %f"\
+                  % (epoch, float(self.score(x_train[0:500], y_train[0:500])))
 
             for idx in xrange(n_train_samples):
 
