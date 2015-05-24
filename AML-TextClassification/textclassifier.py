@@ -26,25 +26,6 @@ class TextClassifier(BaseEstimator):
         """
         Parameters
         ----------
-<<<<<<< HEAD
-        base_classifiers: array, shape = [n_estimators], optional, default: [SGDClassifier()]
-            estimators objects implementing fit and predict
-            used for classification, the best combination is choosen
-
-        scoring: string, optional, precision, recall, f1
-
-            указывает способ подбора лучшего классификатора
-
-        multilabel: boolean, optional, default: True
-
-        with_titles: boolean, optional, default: False
-
-        Attributes
-        ----------
-        multilabel_: boolean, optional, default: True
-        with_titles_: boolean, optional, default: False
-
-=======
             base_classifiers: array, shape = [n_estimators], optional, default: [SGDClassifier()]
                 estimators objects implementing fit and predict
                 used for classification, the best combination is choosen
@@ -54,23 +35,10 @@ class TextClassifier(BaseEstimator):
             multilabel_: boolean, optional, default: True
             with_titles_: boolean, optional, default: False
 
->>>>>>> feature/AML-175-scikit-learn
         """
         self.base_classifiers = base_classifiers
 
     def __feature_selection(self, text_data):
-<<<<<<< HEAD
-        """
-        Transform data by using tf-idf 
-
-        Parameters
-        ----------
-            text_data: array, shape = [n_samples]
-
-        Returns
-        -------
-        sparse matrix of text features
-=======
         """ 
 
         Parameters
@@ -80,7 +48,6 @@ class TextClassifier(BaseEstimator):
         Returns
         -------
             sparse matrix of text features
->>>>>>> feature/AML-175-scikit-learn
         """
         X = self.count_vect_.fit_transform(text_data)
         X_tfidf = self.tfidf_transformer_.fit_transform(X)
@@ -88,11 +55,8 @@ class TextClassifier(BaseEstimator):
 
     def __transform_features(self, text_data):
         """
-<<<<<<< HEAD
-=======
         Transform data by using tf-idf
 
->>>>>>> feature/AML-175-scikit-learn
         Parameters
         ----------
 
@@ -146,16 +110,6 @@ class TextClassifier(BaseEstimator):
         self.best_classifier_.fit(X_features, Y)
         return self
 
-<<<<<<< HEAD
-    def predict(self, X):
-        """
-        Parameters
-        ----------
-
-        Returns
-        -------
-        """
-=======
     def predict(self, X, titles = None):
         """
         Parameters
@@ -168,26 +122,11 @@ class TextClassifier(BaseEstimator):
             y_pred: array, shape = [n_samples]
         """
         self.with_titles = (titles != None)
->>>>>>> feature/AML-175-scikit-learn
         if (self.with_titles_):
             X_train = [X[i] + ' ' + titles[i] for i in range(len(X))]
         else:
             X_train = X
         X_features = self.__transform_features(X_train)
-<<<<<<< HEAD
-        return self.best_classifier_.predict(X_features)
-
-    def predict_proba(self, X):
-        """
-        Parameters
-        ----------
-        Returns
-        -------
-        """
-        X_features = self.__transform_features(X)
-        return self.best_classifier_.predict_proba(X_features)
-
-=======
         y_pred = self.best_classifier_.predict(X_features)
         return y_pred
 
@@ -217,29 +156,19 @@ class TextClassifier(BaseEstimator):
         """
         return self.selector_.get_support()    
 
->>>>>>> feature/AML-175-scikit-learn
     def score(self, X, y_true):
         """
         Parameters
         ----------
-<<<<<<< HEAD
-        Returns
-=======
             X: array, shape = [n_samples]
             y_true: true labels for X
         
         Returns
             Mean accuracy of self.predict(X) wrt. y.
->>>>>>> feature/AML-175-scikit-learn
         -------
         """
         if (self.multilabel_):
             Y = self.selector_.transform(y_true)
-<<<<<<< HEAD
-            return accuracy_score(Y, self.predict(X))
-        else:
-            return accuracy_score(Y, self.predict(X))
-=======
             return np.mean(Y == self.predict(X))
         else:
             return accuracy_score(Y, self.predict(X))
@@ -252,7 +181,6 @@ class TextClassifier(BaseEstimator):
         ----------
             path: path to load from
         -------
->>>>>>> feature/AML-175-scikit-learn
 
         """
         file = open(path, 'rb')
