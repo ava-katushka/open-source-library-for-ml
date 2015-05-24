@@ -12,7 +12,7 @@ from CNNTextClassifier import CNNTextClassifier
 import datetime
 import time
 from gensim.models import Word2Vec
-from nltk.corpus import stopwords
+#from nltk.corpus import stopwords
 import re
 
 sys.path.insert(0, '../../../AML-TextClassification')
@@ -22,7 +22,7 @@ from sklearn import metrics
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-
+'''
 def text_to_wordlist(text, remove_stopwords=False):
     text = re.sub("[^a-zA-Z]", " ", text)
     words = text.lower().split()
@@ -67,7 +67,7 @@ def get_word2vec_model(X_train, X_test):
 
     model.init_sims(replace=True)
     return model
-
+'''
 
 class TestReutersTextClassifier(unittest.TestCase):
     @classmethod
