@@ -79,7 +79,7 @@ def make_html(article, entities, path_to_html):
             with tag('pre'):
                 doc.attr(style='white-space: pre-wrap')
                 with tag('p'):
-                    doc.attr(style='font-size:160%')
+                    doc.attr(style='width:3000px;font-size:160%')
                     k = 0
                     for d in entities.items():
                         #print article[d[0]: d[1][0]]
