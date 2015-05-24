@@ -3,6 +3,7 @@
 import reuters 
 import sys
 import os
+import pickle
 import numpy as np
 from glob import glob
 from sklearn.feature_extraction.text import CountVectorizer
@@ -11,11 +12,7 @@ from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.linear_model import SGDClassifier
 from sklearn.svm import LinearSVC
-from sklearn.tree import DecisionTreeClassifier
-from sklearn import svm
-from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
-from sklearn.linear_model import LogisticRegression
 from sklearn import metrics
 from  sklearn.multiclass import OneVsRestClassifier
 from sklearn.feature_selection import VarianceThreshold
@@ -29,29 +26,20 @@ class TextClassifier(BaseEstimator):
         """
         Parameters
         ----------
-        base_classifiers: array, shape = [n_estimators], optional, default: [SGDClassifier()]
-            estimators objects implementing fit and predict
-            used for classification, the best combination is choosen
-
-        scoring: string, optional, precision, recall, f1
-
-            указывает способ подбора лучшего классификатора
-
-        multilabel: boolean, optional, default: True
-
-        with_titles: boolean, optional, default: False
+            base_classifiers: array, shape = [n_estimators], optional, default: [SGDClassifier()]
+                estimators objects implementing fit and predict
+                used for classification, the best combination is choosen
 
         Attributes
         ----------
-        multilabel_: boolean, optional, default: True
-        with_titles_: boolean, optional, default: False
+            multilabel_: boolean, optional, default: True
+            with_titles_: boolean, optional, default: False
 
         """
         self.base_classifiers = base_classifiers
 
     def __feature_selection(self, text_data):
-        """
-        Transform data by using tf-idf 
+        """ 
 
         Parameters
         ----------
@@ -59,7 +47,7 @@ class TextClassifier(BaseEstimator):
 
         Returns
         -------
-        sparse matrix of text features
+            sparse matrix of text features
         """
         X = self.count_vect_.fit_transform(text_data)
         X_tfidf = self.tfidf_transformer_.fit_transform(X)
@@ -67,6 +55,8 @@ class TextClassifier(BaseEstimator):
 
     def __transform_features(self, text_data):
         """
+        Transform data by using tf-idf
+
         Parameters
         ----------
 
@@ -120,42 +110,81 @@ class TextClassifier(BaseEstimator):
         self.best_classifier_.fit(X_features, Y)
         return self
 
-    def predict(self, X):
+    def predict(self, X, titles = None):
         """
         Parameters
         ----------
+            X: array, shape = [n_samples]
+            titles: array, shape = [n_samples], optional, default: None
 
         Returns
         -------
+            y_pred: array, shape = [n_samples]
         """
+        self.with_titles = (titles != None)
         if (self.with_titles_):
             X_train = [X[i] + ' ' + titles[i] for i in range(len(X))]
         else:
             X_train = X
         X_features = self.__transform_features(X_train)
-        return self.best_classifier_.predict(X_features)
+        y_pred = self.best_classifier_.predict(X_features)
+        return y_pred
 
     def predict_proba(self, X):
         """
+        Compute probabilities of possible outcomes for samples in X.
+
         Parameters
         ----------
+            X: array, shape = [n_samples]
         Returns
         -------
+            Returns the probability of the sample for each class in the model. 
+            The columns correspond to the classes in sorted order, as they appear in the attribute classes_.
         """
         X_features = self.__transform_features(X)
         return self.best_classifier_.predict_proba(X_features)
+
+    def get_support(self):
+        """
+        Get a mask, or integer index, of the features selected
+
+        Returns
+        -------
+            T: array, shape = [n_features]
+            returns the mask of selected features
+        """
+        return self.selector_.get_support()    
 
     def score(self, X, y_true):
         """
         Parameters
         ----------
+            X: array, shape = [n_samples]
+            y_true: true labels for X
+        
         Returns
+            Mean accuracy of self.predict(X) wrt. y.
         -------
         """
         if (self.multilabel_):
             Y = self.selector_.transform(y_true)
-            return accuracy_score(Y, self.predict(X))
+            return np.mean(Y == self.predict(X))
         else:
             return accuracy_score(Y, self.predict(X))
 
+    def load(self, path):
+        """ 
+        Load model parameters from path
+
+        Parameters
+        ----------
+            path: path to load from
+        -------
+
+        """
+        file = open(path, 'rb')
+        state = pickle.load(file)
+        self.__dict__ = state.__dict__
+        file.close()
 
