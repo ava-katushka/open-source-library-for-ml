@@ -91,14 +91,16 @@ class TestReutersTextClassifier(unittest.TestCase):
         #model_name = "word2vec_100_reuters"
         #model = get_word2vec_model(X_train, X_test)
         #model.save(model_name)
-        model_path = "../100features_40minwords_10context"
+        model_path = "./ConvolutionNeuralNetwork/TextClassifier/100features_40minwords_10context"
 
         cls.cnn_text_clf = CNNTextClassifier(learning_rate=0.1, window=5, n_hidden=10,
                                              n_filters=25,
                                              n_out=n_out, word_dimension=100, seed=1,
                                              model_path=model_path, L1_reg=0.1, L2_reg=0.1)
 
-        new_state_path = 'cnn_best_100_state_2015-05-24-05:42:00'
+        new_state_path = './ConvolutionNeuralNetwork/TextClassifier' \
+                         '/reuters/cnn_best_100_state_2015-05' \
+                         '-24-05:42:00'
         print "Loading state for classifier..."
         cls.cnn_text_clf.load(new_state_path)
 
