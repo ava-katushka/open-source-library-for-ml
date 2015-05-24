@@ -3,6 +3,7 @@
 import reuters 
 import sys
 import os
+import pickle
 import numpy as np
 from glob import glob
 from sklearn.feature_extraction.text import CountVectorizer
@@ -11,11 +12,7 @@ from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.linear_model import SGDClassifier
 from sklearn.svm import LinearSVC
-from sklearn.tree import DecisionTreeClassifier
-from sklearn import svm
-from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
-from sklearn.linear_model import LogisticRegression
 from sklearn import metrics
 from  sklearn.multiclass import OneVsRestClassifier
 from sklearn.feature_selection import VarianceThreshold
@@ -29,6 +26,7 @@ class TextClassifier(BaseEstimator):
         """
         Parameters
         ----------
+<<<<<<< HEAD
         base_classifiers: array, shape = [n_estimators], optional, default: [SGDClassifier()]
             estimators objects implementing fit and predict
             used for classification, the best combination is choosen
@@ -46,10 +44,22 @@ class TextClassifier(BaseEstimator):
         multilabel_: boolean, optional, default: True
         with_titles_: boolean, optional, default: False
 
+=======
+            base_classifiers: array, shape = [n_estimators], optional, default: [SGDClassifier()]
+                estimators objects implementing fit and predict
+                used for classification, the best combination is choosen
+
+        Attributes
+        ----------
+            multilabel_: boolean, optional, default: True
+            with_titles_: boolean, optional, default: False
+
+>>>>>>> feature/AML-175-scikit-learn
         """
         self.base_classifiers = base_classifiers
 
     def __feature_selection(self, text_data):
+<<<<<<< HEAD
         """
         Transform data by using tf-idf 
 
@@ -60,6 +70,17 @@ class TextClassifier(BaseEstimator):
         Returns
         -------
         sparse matrix of text features
+=======
+        """ 
+
+        Parameters
+        ----------
+            text_data: array, shape = [n_samples]
+
+        Returns
+        -------
+            sparse matrix of text features
+>>>>>>> feature/AML-175-scikit-learn
         """
         X = self.count_vect_.fit_transform(text_data)
         X_tfidf = self.tfidf_transformer_.fit_transform(X)
@@ -67,6 +88,11 @@ class TextClassifier(BaseEstimator):
 
     def __transform_features(self, text_data):
         """
+<<<<<<< HEAD
+=======
+        Transform data by using tf-idf
+
+>>>>>>> feature/AML-175-scikit-learn
         Parameters
         ----------
 
@@ -120,6 +146,7 @@ class TextClassifier(BaseEstimator):
         self.best_classifier_.fit(X_features, Y)
         return self
 
+<<<<<<< HEAD
     def predict(self, X):
         """
         Parameters
@@ -128,11 +155,26 @@ class TextClassifier(BaseEstimator):
         Returns
         -------
         """
+=======
+    def predict(self, X, titles = None):
+        """
+        Parameters
+        ----------
+            X: array, shape = [n_samples]
+            titles: array, shape = [n_samples], optional, default: None
+
+        Returns
+        -------
+            y_pred: array, shape = [n_samples]
+        """
+        self.with_titles = (titles != None)
+>>>>>>> feature/AML-175-scikit-learn
         if (self.with_titles_):
             X_train = [X[i] + ' ' + titles[i] for i in range(len(X))]
         else:
             X_train = X
         X_features = self.__transform_features(X_train)
+<<<<<<< HEAD
         return self.best_classifier_.predict(X_features)
 
     def predict_proba(self, X):
@@ -145,17 +187,76 @@ class TextClassifier(BaseEstimator):
         X_features = self.__transform_features(X)
         return self.best_classifier_.predict_proba(X_features)
 
+=======
+        y_pred = self.best_classifier_.predict(X_features)
+        return y_pred
+
+    def predict_proba(self, X):
+        """
+        Compute probabilities of possible outcomes for samples in X.
+
+        Parameters
+        ----------
+            X: array, shape = [n_samples]
+        Returns
+        -------
+            Returns the probability of the sample for each class in the model. 
+            The columns correspond to the classes in sorted order, as they appear in the attribute classes_.
+        """
+        X_features = self.__transform_features(X)
+        return self.best_classifier_.predict_proba(X_features)
+
+    def get_support(self):
+        """
+        Get a mask, or integer index, of the features selected
+
+        Returns
+        -------
+            T: array, shape = [n_features]
+            returns the mask of selected features
+        """
+        return self.selector_.get_support()    
+
+>>>>>>> feature/AML-175-scikit-learn
     def score(self, X, y_true):
         """
         Parameters
         ----------
+<<<<<<< HEAD
         Returns
+=======
+            X: array, shape = [n_samples]
+            y_true: true labels for X
+        
+        Returns
+            Mean accuracy of self.predict(X) wrt. y.
+>>>>>>> feature/AML-175-scikit-learn
         -------
         """
         if (self.multilabel_):
             Y = self.selector_.transform(y_true)
+<<<<<<< HEAD
             return accuracy_score(Y, self.predict(X))
         else:
             return accuracy_score(Y, self.predict(X))
+=======
+            return np.mean(Y == self.predict(X))
+        else:
+            return accuracy_score(Y, self.predict(X))
 
+    def load(self, path):
+        """ 
+        Load model parameters from path
+
+        Parameters
+        ----------
+            path: path to load from
+        -------
+>>>>>>> feature/AML-175-scikit-learn
+
+        """
+        file = open(path, 'rb')
+        state = pickle.load(file)
+        self.__dict__ = state.__dict__
+        file.close()
 
