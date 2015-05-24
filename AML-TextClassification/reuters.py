@@ -149,14 +149,14 @@ class ReutersParser(HTMLParser):
                 return [ line["body"] for line in self.__docs[subset] if len(line[category]) == 1 and len(line["body"])!= 0]
         if (value == "target"): 
             if (self.is_multilabel):
-                return np.array( [line[category] for line in self.__docs[subset] if len(line[category]) != 0] and len(line["body"])!= 0 )
+                return np.array( [line[category] for line in self.__docs[subset] if len(line[category]) != 0 and len(line["body"])!= 0]  )
             else:
-                return np.array( [line[category][0] for line in self.__docs[subset] if len(line[category]) == 1] and len(line["body"])!= 0 )
+                return np.array( [line[category][0] for line in self.__docs[subset] if len(line[category]) == 1 and len(line["body"])!= 0]  )
         if (value == "title"):
             if (self.is_multilabel):
-                return ( [line["title"] for line in self.__docs[subset] if len(line[category]) != 0] and len(line["body"])!= 0)
+                return ( [line["title"] for line in self.__docs[subset] if len(line[category]) != 0 and len(line["body"])!= 0] )
             else:
-                return ( [line["title"] for line in self.__docs[subset] if len(line[category]) == 1] and len(line["body"])!= 0)
+                return ( [line["title"] for line in self.__docs[subset] if len(line[category]) == 1 and len(line["body"])!= 0] )
         
     def get_name(self, category, number):
         if (self.is_multilabel):
@@ -164,5 +164,9 @@ class ReutersParser(HTMLParser):
         else:
             return self.numbers_to_types[category][number]
 
-
+    def get_names(self, category):
+        if (self.is_multilabel):
+            return self.target_dict_vectorizer[category].get_feature_names()
+        else:
+            return self.numbers_to_types[category]
 

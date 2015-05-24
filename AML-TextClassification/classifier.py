@@ -8,6 +8,7 @@ from sklearn import metrics
 from  sklearn.multiclass import OneVsRestClassifier
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.cross_validation import cross_val_score
+import pickle
 
 
 import reuters
@@ -47,17 +48,24 @@ sgdc = SGDClassifier(alpha=0.0001, class_weight=None, epsilon=0.1,
         penalty='l2', power_t=0.5, random_state=None, shuffle=True,
         verbose=0, warm_start=False)
 
+names = rp.get_names("topics")
+filename = "names.pkl"
+with open(filename, "wb") as f: 
+    s = pickle.dump(names, f, protocol=2)
+
+
 
 textClassifier = TextClassifier(base_classifiers = [SGDClassifier()])
-q = textClassifier.fit(X_train, Y_train)#, rp.get_corpus("train", "topics", "title"))
+textClassifier.fit(X_train, Y_train)#, rp.get_corpus("train", "topics", "title"))
 
 predicted = textClassifier.predict(X_test)#, rp.get_corpus("test", "topics", "title"))
 
+#save model to file
+filename = "class.pkl"
+with open(filename, "wb") as f: 
+    s = pickle.dump(textClassifier, f, protocol=2)
 
 
 print textClassifier.score(X_test, Y_test)
 print np.mean(cross_val_score(textClassifier, X_train, Y_train))
-
-
-
 
