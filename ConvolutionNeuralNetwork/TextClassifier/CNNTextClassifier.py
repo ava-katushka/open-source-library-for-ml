@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import numpy
 import re
-from nltk.corpus import stopwords
+#from nltk.corpus import stopwords
 from sklearn.base import BaseEstimator
 import cPickle as pickle
 import theano
@@ -268,9 +268,11 @@ def text_to_word_list(text, remove_stopwords=False):
     text = re.sub("[^a-zA-Z]", " ", text)
     words = text.lower().split()
     # Optionally remove stop words (false by default)
+    '''
     if remove_stopwords:
         stops = set(stopwords.words("english"))
         words = [w for w in words if not w in stops]
+    '''
     # 5. Return a list of words
     return words
 
