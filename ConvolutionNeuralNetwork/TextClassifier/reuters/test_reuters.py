@@ -5,6 +5,9 @@ import xmlrunner
 import sys
 import numpy as np
 sys.path.insert(0, '..')
+sys.path.insert(0, './ConvolutionNeuralNetwork/TextClassifier')
+sys.path.insert(0, './AML-TextClassification')
+sys.path.insert(0, './ConvolutionNeuralNetwork/TextClassifier/reuters')
 from CNNTextClassifier import CNNTextClassifier
 import datetime
 import time
