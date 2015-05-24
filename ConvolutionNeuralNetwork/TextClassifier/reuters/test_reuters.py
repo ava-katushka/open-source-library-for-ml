@@ -74,7 +74,7 @@ class TestReutersTextClassifier(unittest.TestCase):
     def setUpClass(cls):
         """ Загрузка данных, загрузка заранее обученного классификатора """
         print "Loading and parsing data..."
-        data_path = '../../../AML-TextClassification/data'
+        data_path = './AML-TextClassification/data'
         rp = reuters.ReutersParser(data_path, multilabel=False)
         rp.parse()
         cls.X_train = rp.get_corpus("train", "topics", "data")
@@ -83,6 +83,10 @@ class TestReutersTextClassifier(unittest.TestCase):
         cls.X_test = rp.get_corpus("test", "topics", "data")
         cls.Y_test = rp.get_corpus("test", "topics", "target")
         print "OK"
+        assert len(cls.X_train) > 0
+        assert len(cls.Y_train) > 0
+        assert len(cls.X_test) > 0
+        assert len(cls.Y_test) > 0
         n_out = max(cls.Y_train) + 1
         #model_name = "word2vec_100_reuters"
         #model = get_word2vec_model(X_train, X_test)
