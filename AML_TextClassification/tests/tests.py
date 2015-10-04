@@ -1,21 +1,22 @@
-
+import os
 import sys
+import unittest
 import xmlrunner
 import numpy as np
 from sklearn.linear_model import SGDClassifier
 from sklearn.svm import LinearSVC
 from sklearn import metrics
 
-sys.path.append("./AML-TextClassification")
+SCRIPT_ROOT = os.path.abspath(os.path.dirname(__file__))
 
-import reuters
-from textclassifier import TextClassifier
+from AML_TextClassification import reuters
+from AML_TextClassification.textclassifier import TextClassifier
 
 
 class TextClassifierTest(unittest.TestCase):
 
     def setUp(self):
-        data_path = "./AML-TextClassification/data"
+        data_path = os.path.join(os.path.dirname(SCRIPT_ROOT), "data")
         rp = reuters.ReutersParser(data_path, multilabel = False)
         rp.parse()
         self.X_train = rp.get_corpus("train", "topics", "data")
@@ -35,8 +36,9 @@ class TextClassifierTest(unittest.TestCase):
         penalty='l2', power_t=0.5, random_state=None, shuffle=True,
         verbose=0, warm_start=False)
 
-        textClassifier = TextClassifier(base_classifiers =[sgdc, LinearSVC()], multilabel = False)
-        textClassifier.fit(self.X_train, self.Y_train)
+        textClassifier = TextClassifier(base_classifiers =[sgdc, LinearSVC()]) #, multilabel = False)
+        # textClassifier.fit(self.X_train, self.Y_train)
+        textClassifier.fit(self.X_train, self.Y_train, multilabel=False)
         predicted = textClassifier.predict(self.X_test)
         base_quality = 0.6
         self.assertGreaterEqual(metrics.precision_score(self.Y_test, predicted, average = 'micro'), base_quality)
@@ -50,8 +52,9 @@ class TextClassifierTest(unittest.TestCase):
         penalty='l2', power_t=0.5, random_state=None, shuffle=True,
         verbose=0, warm_start=False)
 
-        textClassifier = TextClassifier(base_classifiers =[sgdc, LinearSVC()], multilabel = False)
-        textClassifier.fit(self.X_train, self.Y_train)
+        textClassifier = TextClassifier(base_classifiers =[sgdc, LinearSVC()]) #, multilabel = False)
+        # textClassifier.fit(self.X_train, self.Y_train)
+        textClassifier.fit(self.X_train, self.Y_train, multilabel=False)
         predicted = textClassifier.predict(self.X_test)
         advanced_quality = 0.8
         self.assertGreaterEqual(metrics.precision_score(self.Y_test, predicted, average = 'micro'), advanced_quality)
