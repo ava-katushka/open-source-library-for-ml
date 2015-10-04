@@ -19,6 +19,8 @@ from sklearn.feature_selection import VarianceThreshold
 from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score
 
+import textclassifier
+
 
 class TextClassifier(BaseEstimator):
 
@@ -184,6 +186,7 @@ class TextClassifier(BaseEstimator):
 
         """
         file = open(path, 'rb')
+        sys.modules['textclassifier'] = sys.modules[__name__]
         state = pickle.load(file)
         self.__dict__ = state.__dict__
         file.close()
