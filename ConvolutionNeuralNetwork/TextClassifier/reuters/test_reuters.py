@@ -6,7 +6,7 @@ import sys
 import numpy as np
 sys.path.insert(0, '..')
 sys.path.insert(0, './ConvolutionNeuralNetwork/TextClassifier')
-sys.path.insert(0, './AML-TextClassification')
+sys.path.insert(0, './AML_TextClassification')
 sys.path.insert(0, './ConvolutionNeuralNetwork/TextClassifier/reuters')
 from CNNTextClassifier import CNNTextClassifier
 import datetime
@@ -15,7 +15,7 @@ from gensim.models import Word2Vec
 #from nltk.corpus import stopwords
 import re
 
-sys.path.insert(0, '../../../AML-TextClassification')
+sys.path.insert(0, '../../../AML_TextClassification')
 import reuters
 from sklearn import metrics
 
@@ -74,7 +74,7 @@ class TestReutersTextClassifier(unittest.TestCase):
     def setUpClass(cls):
         """ Загрузка данных, загрузка заранее обученного классификатора """
         print "Loading and parsing data..."
-        data_path = './AML-TextClassification/data'
+        data_path = './AML_TextClassification/data'
         rp = reuters.ReutersParser(data_path, multilabel=False)
         rp.parse()
         cls.X_train = rp.get_corpus("train", "topics", "data")
