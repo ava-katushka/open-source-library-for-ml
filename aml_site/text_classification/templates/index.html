@@ -1,0 +1,6 @@
+<form action="{% url 'texts:submit_text' %}" method="post">
+    {% csrf_token %}
+    <textarea cols="40" rows="20" type="text" name="input_text" id="input_text" value=""></textarea>
+    <br>
+    <input type="submit" value="Отправить" />
+</form>
