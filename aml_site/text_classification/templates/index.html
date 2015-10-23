@@ -1,6 +1,150 @@
-<form action="{% url 'texts:submit_text' %}" method="post">
-    {% csrf_token %}
-    <textarea cols="40" rows="20" type="text" name="input_text" id="input_text" value=""></textarea>
-    <br>
-    <input type="submit" value="Отправить" />
-</form>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0"/>
+    <title>AML: Библиотека Машинного Обучения</title>
+
+    <!-- CSS  -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.1/css/materialize.min.css">
+</head>
+<body>
+<nav class="light-blue lighten-1" role="navigation">
+    <div class="nav-wrapper container"><a id="logo-container" href="#" class="brand-logo">Algorithms of Machine Learning</a>
+        <a href="#" data-activates="nav-mobile" class="button-collapse"><i class="material-icons">Меню</i></a>
+    </div>
+</nav>
+<div class="section no-pad-bot" id="index-banner">
+    <div class="container">
+        <h1 class="header center orange-text"> Библиотека Машинного Обучения</h1>
+
+        <div class="row center">
+            <h4 class="header col s12 light"> Машинное обучение - это здорово! Здесь вы можете найти инструменты,
+                которые мы разработали в библиотеке, и попробовать их использовать прямо сейчас. </h4>
+        </div>
+        <div class="container">
+            <div class="row center">
+                <nav>
+                    <div class="nav-wrapper light-blue section-title">
+                        <span class=" white-text">Инструмент №1: Классификатор текстов</span>
+                    </div>
+                </nav>
+                <div class="col s6">
+                    <p class="light">Накопили большое число текстовых данных? Хотите облегчить поиск необходимых
+                        документов?
+                        Тогда Вам стоит попробовать автоматический классификатор текстов по темам!
+                    </p>
+
+                    <p class="light">
+                        Попробуйте прямо сейчас: скопируйте в форму ниже ваш текст, отметьте галочками
+                        возможные темы из приведённых, введите свой email, и мы пришлём вам на почту результат
+                        классификации.
+                        И никакого спама и рекламы!
+                    </p>
+                </div>
+                <div class="col s6">
+                    <p></p>
+                    <form action="{% url 'texts:submit_text' %}" method="post">
+                        {% csrf_token %}
+                        <textarea class="textarea-input" type="text" name="input_text" id="input_text" value=""></textarea>
+                        <br>
+
+                        <div class="row center">
+                            <a class="btn-large waves-effect waves-light orange" type="submit" value="Отправить"/>
+                            Узнать результат</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="row center">
+                 <nav>
+                    <div class="nav-wrapper light-green section-title">
+                        <span class=" white-text">Нам важно ваше мнение</span>
+                    </div>
+                </nav>
+                 <div class="col s6">
+                    <p class="light">
+                        Расскажите, что вы думаете об нашей библиотеке.
+                    </p>
+                </div>
+                <div class="col s6">
+                    <p></p>
+                    <form action="{% url 'texts:submit_text' %}" method="post">
+                        {% csrf_token %}
+                        <textarea class="textarea-input" type="text" name="input_text" id="input_text" value=""></textarea>
+                        <br>
+
+                        <div class="row center">
+                            <a class="btn-large waves-effect waves-light orange" type="submit" value="Отправить"/>
+                            Отправить</a>
+                        </div>
+                    </form>
+                </div>
+
+                </div>
+        </div>
+
+
+        <br><br>
+
+    </div>
+</div>
+
+</div>
+
+<footer class="page-footer orange">
+    <div class="container">
+        <div class="row">
+            <div class="col l6 s12">
+                <h5 class="white-text">Информация о компании</h5>
+
+                <p class="grey-text text-lighten-4">Мы - команда студентов Московского Физико-Технического Института,
+                    и нам интересно машинное обучение. Надеемся, что Вам понравятся наши инструменты!</p>
+
+            </div>
+            <div class="col l3 s12">
+                <h5 class="white-text">Settings</h5>
+                <ul>
+                    <li><a class="white-text" href="#!">Link 1</a></li>
+                    <li><a class="white-text" href="#!">Link 2</a></li>
+                    <li><a class="white-text" href="#!">Link 3</a></li>
+                    <li><a class="white-text" href="#!">Link 4</a></li>
+                </ul>
+            </div>
+            <div class="col l3 s12">
+                <h5 class="white-text">Connect</h5>
+                <ul>
+                    <li><a class="white-text" href="#!">Link 1</a></li>
+                    <li><a class="white-text" href="#!">Link 2</a></li>
+                    <li><a class="white-text" href="#!">Link 3</a></li>
+                    <li><a class="white-text" href="#!">Link 4</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="footer-copyright">
+        <div class="container">
+            Made by <a class="orange-text text-lighten-3" href="http://materializecss.com">Materialize</a>
+        </div>
+    </div>
+</footer>
+
+
+<!--  Scripts-->
+<script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.1/js/materialize.min.js"></script>
+
+<style>
+    .section-title {
+        font-size: 30px;
+    }
+
+    .textarea-input {
+    width: 300px;
+    height: 150px;
+    }
+</style>
+</body>
+</html>
+

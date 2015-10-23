@@ -2,25 +2,16 @@
 # -*- coding: utf-8 -*-
 import reuters 
 import sys
-import os
 import pickle
 import numpy as np
-from glob import glob
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.cross_validation import cross_val_score
 from sklearn.feature_extraction.text import TfidfTransformer
-from sklearn.naive_bayes import MultinomialNB
 from sklearn.linear_model import SGDClassifier
-from sklearn.svm import LinearSVC
-from sklearn import metrics
-from sklearn import metrics
 from  sklearn.multiclass import OneVsRestClassifier
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score
-
-import textclassifier
-
 
 class TextClassifier(BaseEstimator):
 
