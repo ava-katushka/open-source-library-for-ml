@@ -46,11 +46,8 @@ def submit_text(request):
 def send_feedback_email(request):
     if request.method != 'POST':
         return HttpResponseForbidden()
-    try:
-        text = request.POST['input_text']
-        email_sending.sendMail(text)
-    except Exception as e:
-        return HttpResponse(e.message)
+    text = request.POST['input_text']
+    email_sending.sendMail(text)#
     return HttpResponse("OK")
 
 
