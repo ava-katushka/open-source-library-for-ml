@@ -92,7 +92,7 @@
                 </div>
                 <div class="col s9">
                     <div id="email-sending-result-box">
-                        <div class="card-panel ">
+                        <div class="card-panel lighten-3">
                             <span class="white-text" id="email-sending-result">
                                  </span>
                         </div>
@@ -204,12 +204,13 @@
             $.post("{% url 'texts:send_email' %}", {input_text: text}, function (data) {
                 var message = "";
                 var resultObj = $("#email-sending-result-box .card-panel");
-                if (data.length) {
+                if (data == "OK") {
                     message = "Спасибо! Ваше письмо отправлено. Мы обязательно прочитаем ваше мнение и постараемся измениться к лучшему.";
                     change_color_positive(resultObj);
                 } else {
                     message = "К сожалению, ваше письмо не смогло отправиться. Попробуйте еще раз через какое-то время.";
                     change_color_negative(resultObj);
+                    console.error(data);
                 }
                 $('#email-sending-result').html(message);
                 $('#email-sending-result-box').show();
