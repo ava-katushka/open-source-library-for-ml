@@ -1,9 +1,10 @@
 import os
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 
 import pickle
 from AML_TextClassification.textclassifier import TextClassifier
+import site_user_interaction.email_sending as email_sending
 
 SCRIPT_ROOT = os.path.abspath(os.path.dirname(__file__))
 ROOT = os.path.dirname(os.path.dirname(SCRIPT_ROOT))
@@ -40,3 +41,16 @@ def submit_text(request):
             return HttpResponse(', '.join(tags))
         except Exception as e:
             return HttpResponse(e.message)
+
+
+def send_feedback_email(request):
+    if request.method != 'POST':
+        return HttpResponseForbidden()
+    try:
+        text = request.POST['input_text']
+        email_sending.sendMail(text)
+    except Exception as e:
+        return HttpResponse(e.message)
+    return HttpResponse("OK")
+
+

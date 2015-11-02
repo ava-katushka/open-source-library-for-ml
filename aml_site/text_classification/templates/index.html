@@ -11,7 +11,8 @@
 </head>
 <body>
 <nav class="light-blue lighten-1" role="navigation">
-    <div class="nav-wrapper container"><a id="logo-container" href="#" class="brand-logo">Algorithms of Machine Learning</a>
+    <div class="nav-wrapper container"><a id="logo-container" href="#" class="brand-logo">Algorithms of Machine
+        Learning</a>
         <a href="#" data-activates="nav-mobile" class="button-collapse"><i class="material-icons">Меню</i></a>
     </div>
 </nav>
@@ -20,7 +21,8 @@
         <h1 class="header center orange-text"> Библиотека Машинного Обучения</h1>
 
         <div class="row center">
-            <h4 class="header col s12 light"> Машинное обучение - это здорово! Здесь вы можете найти инструменты, которые мы разработали для вас, и попробовать их использовать прямо сейчас</h4>
+            <h4 class="header col s12 light"> Машинное обучение - это здорово! Здесь вы можете найти инструменты,
+                которые мы разработали для вас, и попробовать их использовать прямо сейчас</h4>
         </div>
         <div class="container">
             <div class="row center">
@@ -36,33 +38,37 @@
                     </p>
 
                     <p class="light">
-                        Попробуйте прямо сейчас: скопируйте в форму ниже ваш текст, отметьте галочками
-                        возможные темы из приведённых, введите свой email, и мы пришлём вам на почту результат
-                        классификации.
-                        И никакого спама и рекламы!
+                        Попробуйте прямо сейчас: скопируйте в форму ниже ваш текст и нажмите "Узнать результат"!
                     </p>
                 </div>
                 <div class="col s6">
                     <p></p>
-                    <form action="{% url 'texts:submit_text' %}" method="post">
-                        {% csrf_token %}
-                        <textarea class="textarea-input" type="text" name="input_text" id="input_text" value=""></textarea>
-                        <br>
+                    <textarea class="textarea-input" type="text" id="text-classification-text" value=""></textarea>
+                    <br>
 
-                        <div class="row center">
-                            <a class="btn-large waves-effect waves-light orange" type="submit" value="Отправить" href="#"/>
-                            Узнать результат</a>
+                    <div class="row center">
+                        <div class="btn-large waves-effect waves-light orange" id="text-classification-submit"
+                             value="Отправить">
+                            Узнать результат
                         </div>
-                    </form>
+                    </div>
+                </div>
+                <div class="col s9">
+                    <div id="text-classification-result-box">
+                        <div class="card-panel lighten-3">
+                            <span class="white-text" id="text-classification-result">
+                                 </span>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="row center">
-                 <nav>
+                <nav>
                     <div class="nav-wrapper light-green section-title">
                         <span class=" white-text">Нам важно ваше мнение</span>
                     </div>
                 </nav>
-                 <div class="col s6">
+                <div class="col s6">
                     <p class="light">
                         Вам понравилось? Полезны ли именно Вам предоставленные нами инструменты анализа данных?
                         Есть что сказать - пишите нам! Мы будем рады любому Вашему отзыву.
@@ -70,19 +76,30 @@
                 </div>
                 <div class="col s6">
                     <p></p>
+
                     <form action="{% url 'texts:submit_text' %}" method="post">
                         {% csrf_token %}
-                        <textarea class="textarea-input" type="text" name="input_text" id="input_text" value=""></textarea>
+                        <textarea class="textarea-input" type="text" name="email-ext" id="email-text"
+                                  value=""></textarea>
                         <br>
 
                         <div class="row center">
-                            <a class="btn-large waves-effect waves-light orange" type="submit" value="Отправить"/>
+                            <a class="btn-large waves-effect waves-light orange" type="submit" value="Отправить"
+                               id="send-email-button"/>
                             Отправить</a>
                         </div>
                     </form>
                 </div>
-
+                <div class="col s9">
+                    <div id="email-sending-result-box">
+                        <div class="card-panel ">
+                            <span class="white-text" id="email-sending-result">
+                                 </span>
+                        </div>
+                    </div>
                 </div>
+
+            </div>
         </div>
 
 
@@ -96,36 +113,20 @@
 <footer class="page-footer orange">
     <div class="container">
         <div class="row">
-            <div class="col l6 s12">
+            <div class="col s12">
                 <h5 class="white-text">Информация о компании</h5>
 
                 <p class="grey-text text-lighten-4">Мы - команда студентов Московского Физико-Технического Института,
-                    и нам интересно машинное обучение. Надеемся, что Вам понравятся наши инструменты!</p>
+                    и нам интересно машинное обучение. <br>
+                    Надеемся, что Вам понравятся наши инструменты!</p>
 
             </div>
-            <div class="col l3 s12">
-                <h5 class="white-text">Settings</h5>
-                <ul>
-                    <li><a class="white-text" href="#!">Link 1</a></li>
-                    <li><a class="white-text" href="#!">Link 2</a></li>
-                    <li><a class="white-text" href="#!">Link 3</a></li>
-                    <li><a class="white-text" href="#!">Link 4</a></li>
-                </ul>
-            </div>
-            <div class="col l3 s12">
-                <h5 class="white-text">Connect</h5>
-                <ul>
-                    <li><a class="white-text" href="#!">Link 1</a></li>
-                    <li><a class="white-text" href="#!">Link 2</a></li>
-                    <li><a class="white-text" href="#!">Link 3</a></li>
-                    <li><a class="white-text" href="#!">Link 4</a></li>
-                </ul>
-            </div>
+
         </div>
     </div>
     <div class="footer-copyright">
         <div class="container">
-            Made by <a class="orange-text text-lighten-3" href="http://materializecss.com">Materialize</a>
+            Made by <a class="orange-text text-lighten-1" href="http://materializecss.com">Materialize</a>
         </div>
     </div>
 </footer>
@@ -134,6 +135,89 @@
 <!--  Scripts-->
 <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.1/js/materialize.min.js"></script>
+<script>
+    $(document).ready(function () {
+
+        $.ajaxSetup({
+            beforeSend: function (xhr, settings) {
+                function getCookie(name) {
+                    var cookieValue = null;
+                    if (document.cookie && document.cookie != '') {
+                        var cookies = document.cookie.split(';');
+                        for (var i = 0; i < cookies.length; i++) {
+                            var cookie = jQuery.trim(cookies[i]);
+                            // Does this cookie string begin with the name we want?
+                            if (cookie.substring(0, name.length + 1) == (name + '=')) {
+                                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                break;
+                            }
+                        }
+                    }
+                    return cookieValue;
+                }
+
+                if (!(/^http:.*/.test(settings.url) || /^https:.*/.test(settings.url))) {
+                    // Only send the token to relative URLs i.e. locally.
+                    xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken'));
+                }
+            }
+        });
+
+        function change_color_positive(obj) {
+            obj.removeClass("red");
+            obj.addClass("green");
+        }
+
+        function change_color_negative(obj) {
+            obj.removeClass("green");
+            obj.addClass("red");
+        }
+
+        function after_load() {
+            $('#text-classification-result-box').hide();
+            $('#email-sending-result-box').hide();
+        }
+
+
+        after_load();
+
+        $('#text-classification-submit').click(function () {
+            var text = $('#text-classification-text').val();
+            $.post("{% url 'texts:submit_text' %}", {input_text: text}, function (data) {
+                var message = "";
+                var resultObj = $("#text-classification-result-box .card-panel");
+                if (data.length) {
+                    message = "<b> Результат классификации: </b>" + data;
+                    change_color_positive(resultObj);
+                } else {
+                    message = "К сожелению, наш классификатор не смог определить тему вашего текста." +
+                            " Попробуйте еще! Он хорошо понимает тексты про пшеницу и золото на английском=)";
+                    change_color_negative(resultObj);
+                }
+                $('#text-classification-result').html(message);
+                $('#text-classification-result-box').show();
+            });
+        });
+
+        $('#send-email-button').click(function () {
+            var text = $('#email-text').val();
+            $.post("{% url 'texts:send_email' %}", {input_text: text}, function (data) {
+                var message = "";
+                var resultObj = $("#email-sending-result-box .card-panel");
+                if (data.length) {
+                    message = "Спасибо! Ваше письмо отправлено. Мы обязательно прочитаем ваше мнение и постараемся измениться к лучшему.";
+                    change_color_positive(resultObj);
+                } else {
+                    message = "К сожалению, ваше письмо не смогло отправиться. Попробуйте еще раз через какое-то время.";
+                    change_color_negative(resultObj);
+                }
+                $('#email-sending-result').html(message);
+                $('#email-sending-result-box').show();
+            });
+        });
+    });
+</script>
+
 
 <style>
     .section-title {
@@ -141,8 +225,8 @@
     }
 
     .textarea-input {
-    width: 300px;
-    height: 150px;
+        width: 300px;
+        height: 150px;
     }
 </style>
 </body>
