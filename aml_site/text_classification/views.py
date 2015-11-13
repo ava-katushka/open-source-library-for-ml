@@ -49,7 +49,8 @@ def send_feedback_email(request):
     try:
         text = request.POST['input_text']
         email_sending.sendMail(text)
-
+    except :
+        return HttpResponse("")
     return HttpResponse("OK")
 
 
